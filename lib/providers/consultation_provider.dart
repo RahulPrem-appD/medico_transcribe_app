@@ -212,7 +212,10 @@ class ConsultationProvider extends ChangeNotifier {
   }
 
   /// Regenerate report for a consultation
-  Future<ProcessingResult> regenerateReport(String consultationId) async {
+  Future<ProcessingResult> regenerateReport(
+    String consultationId, {
+    String? additionalInstructions,
+  }) async {
     _isProcessing = true;
     _error = null;
     _processingStatus = ConsultationStatus.generating_report;
@@ -222,6 +225,7 @@ class ConsultationProvider extends ChangeNotifier {
     try {
       final result = await _service.regenerateReport(
         consultationId: consultationId,
+        additionalInstructions: additionalInstructions,
         onStatusChange: (status, message) {
           _processingStatus = status;
           _processingMessage = message;

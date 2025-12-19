@@ -37,8 +37,9 @@ class _ResultsScreenState extends State<ResultsScreen> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              AppTheme.softMint,
-              AppTheme.warmCream,
+              AppTheme.softSkyBg,
+              AppTheme.paleBlue.withOpacity(0.3),
+              Colors.white,
             ],
           ),
         ),
@@ -54,16 +55,35 @@ class _ResultsScreenState extends State<ResultsScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation(AppTheme.primaryTeal),
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: AppTheme.primarySkyBlue.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation(AppTheme.primarySkyBlue),
+                strokeWidth: 3,
+              ),
+            ),
           ),
           const SizedBox(height: 24),
           Text(
             'Regenerating report...',
-            style: GoogleFonts.dmSans(
+            style: GoogleFonts.poppins(
               fontSize: 18,
               fontWeight: FontWeight.w600,
               color: AppTheme.darkSlate,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'AI is analyzing the transcription',
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              color: AppTheme.mediumGray,
             ),
           ),
         ],
@@ -130,7 +150,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                     'Diagnosis',
                     Icons.health_and_safety_rounded,
                     report.diagnosis,
-                    AppTheme.primaryTeal,
+                    AppTheme.primarySkyBlue,
                   ),
                   const SizedBox(height: 16),
                   // Prescription
@@ -146,7 +166,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                     'Additional Notes',
                     Icons.note_alt_rounded,
                     report.additionalNotes,
-                    AppTheme.deepTeal,
+                    AppTheme.deepSkyBlue,
                   ),
                 ] else
                   _buildNoReportCard(),
@@ -205,9 +225,9 @@ class _ResultsScreenState extends State<ResultsScreen> {
                 SnackBar(
                   content: Text(
                     'Share feature coming soon!',
-                    style: GoogleFonts.dmSans(),
+                    style: GoogleFonts.poppins(),
                   ),
-                  backgroundColor: AppTheme.primaryTeal,
+                  backgroundColor: AppTheme.primarySkyBlue,
                   behavior: SnackBarBehavior.floating,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -230,7 +250,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
               ),
               child: const Icon(
                 Icons.share_rounded,
-                color: AppTheme.primaryTeal,
+                color: AppTheme.primarySkyBlue,
                 size: 22,
               ),
             ),
@@ -277,16 +297,16 @@ class _ResultsScreenState extends State<ResultsScreen> {
               children: [
                 Text(
                   'Notes Generated Successfully',
-                  style: GoogleFonts.dmSans(
+                  style: GoogleFonts.poppins(
                     fontSize: 16,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                     color: Colors.white,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   'Review the consultation notes below',
-                  style: GoogleFonts.dmSans(
+                  style: GoogleFonts.poppins(
                     fontSize: 13,
                     color: Colors.white.withOpacity(0.9),
                   ),
@@ -321,17 +341,17 @@ class _ResultsScreenState extends State<ResultsScreen> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: AppTheme.primaryTeal.withOpacity(0.1),
+                  color: AppTheme.primarySkyBlue.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(icon, color: AppTheme.primaryTeal, size: 22),
+                child: Icon(icon, color: AppTheme.primarySkyBlue, size: 22),
               ),
               const SizedBox(width: 12),
               Text(
                 title,
-                style: GoogleFonts.dmSans(
+                style: GoogleFonts.poppins(
                   fontSize: 16,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                   color: AppTheme.darkSlate,
                 ),
               ),
@@ -347,7 +367,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                       width: 80,
                       child: Text(
                         row.label,
-                        style: GoogleFonts.dmSans(
+                        style: GoogleFonts.poppins(
                           fontSize: 14,
                           color: AppTheme.mediumGray,
                         ),
@@ -356,7 +376,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                     Expanded(
                       child: Text(
                         row.value,
-                        style: GoogleFonts.dmSans(
+                        style: GoogleFonts.poppins(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: AppTheme.darkSlate,
@@ -402,9 +422,9 @@ class _ResultsScreenState extends State<ResultsScreen> {
             const SizedBox(width: 12),
             Text(
               title,
-              style: GoogleFonts.dmSans(
+              style: GoogleFonts.poppins(
                 fontSize: 16,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
                 color: AppTheme.darkSlate,
               ),
             ),
@@ -422,7 +442,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
           ),
           child: Text(
             content,
-            style: GoogleFonts.dmSans(
+            style: GoogleFonts.poppins(
               fontSize: 13,
               color: AppTheme.darkSlate,
               height: 1.6,
@@ -464,9 +484,9 @@ class _ResultsScreenState extends State<ResultsScreen> {
               const SizedBox(width: 12),
               Text(
                 title,
-                style: GoogleFonts.dmSans(
+                style: GoogleFonts.poppins(
                   fontSize: 16,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                   color: AppTheme.darkSlate,
                 ),
               ),
@@ -485,7 +505,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
             ),
             child: Text(
               content.isNotEmpty ? content : 'Not documented',
-              style: GoogleFonts.dmSans(
+              style: GoogleFonts.poppins(
                 fontSize: 14,
                 color: AppTheme.darkSlate,
                 height: 1.6,
@@ -521,7 +541,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
           const SizedBox(height: 16),
           Text(
             'No report generated yet',
-            style: GoogleFonts.dmSans(
+            style: GoogleFonts.poppins(
               fontSize: 16,
               fontWeight: FontWeight.w600,
               color: AppTheme.darkSlate,
@@ -529,8 +549,8 @@ class _ResultsScreenState extends State<ResultsScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Tap "Regenerate" to generate a new report',
-            style: GoogleFonts.dmSans(
+            'Tap the refresh button to generate a new report',
+            style: GoogleFonts.poppins(
               fontSize: 14,
               color: AppTheme.mediumGray,
             ),
@@ -556,26 +576,35 @@ class _ResultsScreenState extends State<ResultsScreen> {
       child: SafeArea(
         child: Row(
           children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: _regenerateReport,
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  side: const BorderSide(color: AppTheme.primaryTeal, width: 2),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+            // Regenerate button - icon only with tooltip
+            GestureDetector(
+              onTap: _showRegenerateDialog,
+              child: Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: AppTheme.primarySkyBlue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: AppTheme.primarySkyBlue.withOpacity(0.3),
+                    width: 1.5,
                   ),
                 ),
-                child: Row(
+                child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.refresh_rounded, size: 20),
-                    const SizedBox(width: 8),
+                    Icon(
+                      Icons.refresh_rounded,
+                      color: AppTheme.primarySkyBlue,
+                      size: 24,
+                    ),
+                    const SizedBox(height: 2),
                     Text(
-                      'Regenerate',
-                      style: GoogleFonts.dmSans(
-                        fontSize: 15,
+                      'Redo',
+                      style: GoogleFonts.poppins(
+                        fontSize: 9,
                         fontWeight: FontWeight.w600,
+                        color: AppTheme.primarySkyBlue,
                       ),
                     ),
                   ],
@@ -583,15 +612,15 @@ class _ResultsScreenState extends State<ResultsScreen> {
               ),
             ),
             const SizedBox(width: 12),
+            // Done button - main action
             Expanded(
-              flex: 2,
               child: ElevatedButton(
                 onPressed: () {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
                         'Report saved successfully!',
-                        style: GoogleFonts.dmSans(),
+                        style: GoogleFonts.poppins(),
                       ),
                       backgroundColor: AppTheme.successGreen,
                       behavior: SnackBarBehavior.floating,
@@ -603,22 +632,24 @@ class _ResultsScreenState extends State<ResultsScreen> {
                   _navigateHome();
                 },
                 style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  backgroundColor: AppTheme.primaryTeal,
+                  padding: const EdgeInsets.symmetric(vertical: 18),
+                  backgroundColor: AppTheme.primarySkyBlue,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(16),
                   ),
+                  elevation: 0,
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.check_rounded, size: 20),
-                    const SizedBox(width: 8),
+                    const Icon(Icons.check_rounded, size: 22, color: Colors.white),
+                    const SizedBox(width: 10),
                     Text(
-                      'Done',
-                      style: GoogleFonts.dmSans(
-                        fontSize: 15,
+                      'Save & Close',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
                         fontWeight: FontWeight.w600,
+                        color: Colors.white,
                       ),
                     ),
                   ],
@@ -631,13 +662,244 @@ class _ResultsScreenState extends State<ResultsScreen> {
     );
   }
 
-  Future<void> _regenerateReport() async {
+  void _showRegenerateDialog() {
+    final instructionsController = TextEditingController();
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primarySkyBlue.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.auto_awesome_rounded,
+                      color: AppTheme.primarySkyBlue,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Regenerate Report',
+                          style: GoogleFonts.poppins(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.darkSlate,
+                          ),
+                        ),
+                        Text(
+                          'AI will create a new report based on your feedback',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: AppTheme.mediumGray,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              
+              // Instructions label
+              Text(
+                'What would you like to change?',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: AppTheme.darkSlate,
+                ),
+              ),
+              const SizedBox(height: 8),
+              
+              // Quick suggestions
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _buildSuggestionChip('More detailed diagnosis', instructionsController),
+                  _buildSuggestionChip('Simpler language', instructionsController),
+                  _buildSuggestionChip('Add more symptoms', instructionsController),
+                  _buildSuggestionChip('Focus on prescription', instructionsController),
+                ],
+              ),
+              const SizedBox(height: 16),
+              
+              // Text input
+              TextField(
+                controller: instructionsController,
+                maxLines: 3,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: AppTheme.darkSlate,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'E.g., "Include more details about the medication dosage" or "Make the diagnosis section more comprehensive"',
+                  hintStyle: GoogleFonts.poppins(
+                    fontSize: 13,
+                    color: AppTheme.mediumGray.withOpacity(0.6),
+                  ),
+                  filled: true,
+                  fillColor: AppTheme.lightGray.withOpacity(0.3),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppTheme.primarySkyBlue, width: 2),
+                  ),
+                  contentPadding: const EdgeInsets.all(16),
+                ),
+              ),
+              const SizedBox(height: 8),
+              
+              // Optional note
+              Row(
+                children: [
+                  Icon(
+                    Icons.info_outline_rounded,
+                    size: 14,
+                    color: AppTheme.mediumGray.withOpacity(0.7),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Leave empty to regenerate with default settings',
+                    style: GoogleFonts.poppins(
+                      fontSize: 11,
+                      color: AppTheme.mediumGray.withOpacity(0.7),
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              
+              // Buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        side: BorderSide(color: AppTheme.mediumGray.withOpacity(0.3)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        'Cancel',
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.mediumGray,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _regenerateReport(instructionsController.text.trim());
+                      },
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        backgroundColor: AppTheme.primarySkyBlue,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.auto_awesome_rounded, size: 18, color: Colors.white),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Regenerate',
+                            style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildSuggestionChip(String text, TextEditingController controller) {
+    return GestureDetector(
+      onTap: () {
+        if (controller.text.isEmpty) {
+          controller.text = text;
+        } else {
+          controller.text = '${controller.text}. $text';
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: AppTheme.primarySkyBlue.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppTheme.primarySkyBlue.withOpacity(0.2)),
+        ),
+        child: Text(
+          text,
+          style: GoogleFonts.poppins(
+            fontSize: 12,
+            color: AppTheme.primarySkyBlue,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _regenerateReport(String? instructions) async {
     setState(() {
       _isRegenerating = true;
     });
 
     final provider = Provider.of<ConsultationProvider>(context, listen: false);
-    final result = await provider.regenerateReport(_consultation.id);
+    final result = await provider.regenerateReport(
+      _consultation.id,
+      additionalInstructions: instructions,
+    );
 
     if (mounted) {
       setState(() {
@@ -652,7 +914,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
           SnackBar(
             content: Text(
               result.error ?? 'Failed to regenerate report',
-              style: GoogleFonts.dmSans(),
+              style: GoogleFonts.poppins(),
             ),
             backgroundColor: AppTheme.accentCoral,
             behavior: SnackBarBehavior.floating,

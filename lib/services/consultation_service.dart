@@ -328,6 +328,7 @@ class ConsultationService {
   /// Regenerate report for existing consultation
   Future<ProcessingResult> regenerateReport({
     required String consultationId,
+    String? additionalInstructions,
     Function(ConsultationStatus status, String? message)? onStatusChange,
   }) async {
     try {
@@ -361,6 +362,7 @@ class ConsultationService {
         transcription: consultation.transcription!,
         language: consultation.language,
         patientName: consultation.patientName,
+        additionalInstructions: additionalInstructions,
       );
 
       if (!reportResult.success) {

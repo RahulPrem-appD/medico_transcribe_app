@@ -36,6 +36,7 @@ Clinical Guidelines:
     required String transcription,
     required String language,
     String? patientName,
+    String? additionalInstructions,
   }) async {
     try {
       // Handle empty transcription
@@ -49,6 +50,18 @@ Clinical Guidelines:
         );
       }
 
+      // Build user prompt with optional additional instructions
+      String instructionsSection = '';
+      if (additionalInstructions != null && additionalInstructions.isNotEmpty) {
+        instructionsSection = '''
+
+=== ADDITIONAL INSTRUCTIONS FROM DOCTOR ===
+$additionalInstructions
+=== END ADDITIONAL INSTRUCTIONS ===
+
+Please incorporate these instructions when generating the report.''';
+      }
+
       final userPrompt = '''Analyze the following medical consultation transcription and generate a comprehensive clinical report.
 
 Patient Name: ${patientName ?? 'Not provided'}
@@ -56,7 +69,7 @@ Consultation Language: $language
 
 === TRANSCRIPTION START ===
 $transcription
-=== TRANSCRIPTION END ===
+=== TRANSCRIPTION END ===$instructionsSection
 
 Generate a detailed medical consultation report in the specified JSON format. Ensure all clinical details from the conversation are captured accurately.''';
 
