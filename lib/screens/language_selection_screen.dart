@@ -234,13 +234,13 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen>
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [AppTheme.primaryTeal, AppTheme.deepTeal],
+                    gradient: LinearGradient(
+                      colors: [AppTheme.primarySkyBlue, AppTheme.deepSkyBlue],
                     ),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: const Icon(
-                    Icons.translate_rounded,
+                    Icons.record_voice_over_rounded,
                     color: Colors.white,
                     size: 28,
                   ),
