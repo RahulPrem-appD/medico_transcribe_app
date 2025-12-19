@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
+import '../models/report_template.dart';
 
 /// Featherless AI Service for medical report generation
 /// Uses Llama3-Med42-70B model for clinical documentation
@@ -9,7 +10,11 @@ class FeatherService {
   factory FeatherService() => _instance;
   FeatherService._internal();
 
-  static const String _systemPrompt = '''You are an expert medical assistant specialized in generating clinical consultation notes from patient-doctor conversation transcriptions.
+  /// Generate system prompt based on template configuration
+  String _buildSystemPrompt(ReportTemplateConfig? templateConfig) {
+    if (templateConfig == null || templateConfig.sections.isEmpty) {
+      // Default system prompt for backward compatibility
+      return '''You are an expert medical assistant specialized in generating clinical consultation notes from patient-doctor conversation transcriptions.
 
 Your task is to analyze the transcription and extract structured medical information in a professional clinical format.
 
@@ -30,6 +35,132 @@ Clinical Guidelines:
 - Format prescriptions clearly: Drug name, strength, route, frequency, duration
 - Note any allergies or contraindications mentioned
 - Include vital signs if mentioned in the conversation''';
+    }
+
+    // Build dynamic JSON structure from sections
+    final jsonStructure = <String, String>{};
+    for (final section in templateConfig.sections) {
+      final key = _sectionToKey(section.name);
+      jsonStructure[key] = _getSectionDescription(section);
+    }
+
+    // Format instructions
+    String formatInstructions = '';
+    switch (templateConfig.format) {
+      case 'concise':
+        formatInstructions = 'Keep responses brief and to the point. Use short sentences.';
+        break;
+      case 'bullet_points':
+        formatInstructions = 'Use bullet points for all content. Make it easy to scan quickly.';
+        break;
+      case 'detailed':
+      default:
+        formatInstructions = 'Provide comprehensive details for each section.';
+    }
+
+    // Tone instructions
+    String toneInstructions = '';
+    switch (templateConfig.tone) {
+      case 'simple':
+        toneInstructions = 'Use simple, easy-to-understand language. Avoid complex medical jargon. Explain terms when necessary.';
+        break;
+      case 'technical':
+        toneInstructions = 'Use precise medical terminology and technical language appropriate for clinical documentation.';
+        break;
+      case 'formal':
+      default:
+        toneInstructions = 'Use professional medical language appropriate for clinical documentation.';
+    }
+
+    final jsonExample = jsonEncode(jsonStructure);
+
+    return '''You are an expert medical assistant specialized in generating clinical consultation notes from patient-doctor conversation transcriptions.
+
+Your task is to analyze the transcription and extract structured medical information based on the requested sections.
+
+IMPORTANT: Always respond in valid JSON format with EXACTLY these keys:
+$jsonExample
+
+FORMAT STYLE: $formatInstructions
+LANGUAGE TONE: $toneInstructions
+
+Clinical Guidelines:
+- Use standard medical terminology appropriately based on the tone specified
+- Be thorough but concise in documentation
+- If information is not explicitly mentioned in the transcription, note "Not documented" rather than assuming
+- Include relevant negatives when mentioned (e.g., "no fever", "denies chest pain")
+- Format prescriptions clearly when applicable: Drug name, strength, route, frequency, duration
+- Note any allergies or contraindications mentioned
+- Include vital signs if mentioned in the conversation
+- ONLY include the requested sections, nothing more''';
+  }
+
+  /// Convert section name to a valid JSON key
+  String _sectionToKey(String sectionName) {
+    return sectionName
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+        .replaceAll(RegExp(r'^_+|_+$'), '');
+  }
+
+  /// Get description for a section to use in JSON structure
+  String _getSectionDescription(ReportSection section) {
+    // Map common section names to descriptions
+    final descriptions = {
+      'chief_complaint': 'Primary reason for the visit in 1-2 sentences',
+      'history': 'Detailed history of the present illness',
+      'history_of_present_illness': 'Detailed history of the present illness',
+      'past_medical': 'Previous medical conditions, surgeries, hospitalizations',
+      'past_medical_history': 'Previous medical conditions, surgeries, hospitalizations',
+      'family_history': 'Relevant family medical history',
+      'social_history': 'Lifestyle, occupation, habits',
+      'allergies': 'Known allergies and reactions',
+      'current_medications': 'List of current medications with dosages',
+      'vitals': 'Vital signs: BP, pulse, temperature, etc.',
+      'vital_signs': 'Vital signs: BP, pulse, temperature, etc.',
+      'physical_exam': 'Findings from physical examination',
+      'physical_examination': 'Findings from physical examination',
+      'symptoms': 'Patient reported symptoms with duration and severity',
+      'diagnosis': 'Clinical diagnosis based on findings',
+      'differential': 'Alternative possible diagnoses to consider',
+      'differential_diagnosis': 'Alternative possible diagnoses to consider',
+      'investigations': 'Lab tests, imaging, and other investigations ordered',
+      'treatment_plan': 'Proposed treatment approach',
+      'prescription': 'Medications: Drug, strength, route, frequency, duration',
+      'advice': 'Patient instructions and lifestyle advice',
+      'advice_instructions': 'Patient instructions and lifestyle advice',
+      'follow_up': 'Next appointment and monitoring plan',
+      'prognosis': 'Expected outcome and recovery timeline',
+      'notes': 'Additional relevant information',
+      'additional_notes': 'Additional relevant information',
+      'subjective': 'Patient reported symptoms and concerns (SOAP)',
+      'objective': 'Physical exam findings and vital signs (SOAP)',
+      'assessment': 'Clinical assessment and diagnosis (SOAP)',
+      'plan': 'Treatment plan and follow-up (SOAP)',
+      'referral_reason': 'Reason for specialist referral',
+      'reason_for_follow_up': 'Reason for this follow-up visit',
+      'progress': 'Progress since last visit',
+      'progress_since_last_visit': 'Changes in symptoms and condition since last visit',
+      'plan_update': 'Updates to the treatment plan',
+      'updated_treatment_plan': 'Updates to the treatment plan',
+      'summary': 'Summary of findings in simple terms',
+      'what_we_found': 'Summary of findings in simple terms',
+      'medications': 'Medications to take and when',
+      'your_medications': 'Medications to take and when',
+      'instructions': 'Care instructions for the patient',
+      'what_to_do': 'Care instructions for the patient',
+      'warning_signs': 'Warning signs to watch for',
+      'when_to_call': 'Warning signs that require immediate attention',
+      'next_visit': 'When to come back for follow-up',
+      'clinical_findings': 'Clinical examination findings',
+      'provisional_diagnosis': 'Provisional diagnosis for referral',
+      'specific_questions': 'Specific questions for the specialist',
+      'specific_questions_for_specialist': 'Specific questions for the specialist',
+    };
+
+    final key = _sectionToKey(section.name);
+    return descriptions[key] ?? section.description ?? 'Content for ${section.name}';
+  }
 
   /// Generate medical report from transcription
   Future<ReportGenerationResult> generateReport({
@@ -37,18 +168,23 @@ Clinical Guidelines:
     required String language,
     String? patientName,
     String? additionalInstructions,
+    ReportTemplateConfig? templateConfig,
   }) async {
     try {
       // Handle empty transcription
       if (transcription.isEmpty || transcription.trim().isEmpty) {
-        return ReportGenerationResult.success(
-          chiefComplaint: 'Unable to determine - audio was silent or unclear',
-          symptoms: 'No symptoms recorded - transcription was empty',
-          diagnosis: 'Assessment pending - please re-record consultation with clear audio',
-          prescription: 'None prescribed at this time',
-          additionalNotes: 'Recommendation: Re-record the consultation ensuring clear audio capture.',
-        );
+        final defaultSections = <String, String>{
+          'chief_complaint': 'Unable to determine - audio was silent or unclear',
+          'symptoms': 'No symptoms recorded - transcription was empty',
+          'diagnosis': 'Assessment pending - please re-record consultation with clear audio',
+          'prescription': 'None prescribed at this time',
+          'additional_notes': 'Recommendation: Re-record the consultation ensuring clear audio capture.',
+        };
+        return ReportGenerationResult.successWithSections(sections: defaultSections);
       }
+
+      // Build system prompt based on template
+      final systemPrompt = _buildSystemPrompt(templateConfig);
 
       // Build user prompt with optional additional instructions
       String instructionsSection = '';
@@ -60,6 +196,15 @@ $additionalInstructions
 === END ADDITIONAL INSTRUCTIONS ===
 
 Please incorporate these instructions when generating the report.''';
+      }
+
+      if (templateConfig?.customInstructions != null && 
+          templateConfig!.customInstructions!.isNotEmpty) {
+        instructionsSection += '''
+
+=== TEMPLATE CUSTOM INSTRUCTIONS ===
+${templateConfig.customInstructions}
+=== END TEMPLATE INSTRUCTIONS ===''';
       }
 
       final userPrompt = '''Analyze the following medical consultation transcription and generate a comprehensive clinical report.
@@ -82,7 +227,7 @@ Generate a detailed medical consultation report in the specified JSON format. En
         body: jsonEncode({
           'model': AppConfig.featherModel,
           'messages': [
-            {'role': 'system', 'content': _systemPrompt},
+            {'role': 'system', 'content': systemPrompt},
             {'role': 'user', 'content': userPrompt},
           ],
           'temperature': 0.2,
@@ -95,23 +240,23 @@ Generate a detailed medical consultation report in the specified JSON format. En
         final content = data['choices']?[0]?['message']?['content'] ?? '{}';
 
         try {
-          final reportData = jsonDecode(content);
-          return ReportGenerationResult.success(
-            chiefComplaint: _toString(reportData['chief_complaint'], 'Not documented'),
-            symptoms: _toString(reportData['symptoms'], 'Not documented'),
-            diagnosis: _toString(reportData['diagnosis'], 'Assessment pending'),
-            prescription: _toString(reportData['prescription'], 'None prescribed'),
-            additionalNotes: _toString(reportData['additional_notes'], ''),
-          );
+          final reportData = jsonDecode(content) as Map<String, dynamic>;
+          final sections = <String, String>{};
+          
+          reportData.forEach((key, value) {
+            sections[key] = _toString(value, 'Not documented');
+          });
+
+          return ReportGenerationResult.successWithSections(sections: sections);
         } catch (jsonError) {
           // Try to extract fields from malformed response
           print('Non-JSON response, attempting field extraction: ${content.substring(0, 200.clamp(0, content.length))}');
-          return ReportGenerationResult.success(
-            chiefComplaint: _extractField(content, 'chief_complaint') ?? content.substring(0, 500.clamp(0, content.length)),
-            symptoms: _extractField(content, 'symptoms') ?? 'Please review transcription for symptoms',
-            diagnosis: _extractField(content, 'diagnosis') ?? 'Assessment pending - please review',
-            prescription: _extractField(content, 'prescription') ?? 'Please add prescriptions as needed',
-            additionalNotes: _extractField(content, 'additional_notes') ?? 'Auto-generated report may need manual review.',
+          
+          // Return raw content as a single section
+          return ReportGenerationResult.successWithSections(
+            sections: {
+              'report': content,
+            },
           );
         }
       } else {
@@ -127,62 +272,92 @@ Generate a detailed medical consultation report in the specified JSON format. En
   /// Convert any value to string (handles nested objects)
   String _toString(dynamic value, String defaultValue) {
     if (value == null) return defaultValue;
-    if (value is String) return value;
+    if (value is String) {
+      // Clean up any JSON artifacts or escape sequences
+      String cleaned = value
+          .replaceAll('\\n', '\n')
+          .replaceAll('\\"', '"')
+          .trim();
+      return cleaned.isNotEmpty ? cleaned : defaultValue;
+    }
     if (value is Map) {
       final lines = <String>[];
       value.forEach((k, v) {
+        final formattedKey = _formatKey(k.toString());
         if (v is String) {
-          lines.add('- $k: $v');
+          lines.add('• $formattedKey: $v');
+        } else if (v is List) {
+          lines.add('• $formattedKey:');
+          for (var item in v) {
+            lines.add('  - ${item.toString()}');
+          }
+        } else if (v is Map) {
+          lines.add('• $formattedKey:');
+          v.forEach((subK, subV) {
+            lines.add('  - ${_formatKey(subK.toString())}: $subV');
+          });
         } else {
-          lines.add('- $k: ${jsonEncode(v)}');
+          lines.add('• $formattedKey: ${v.toString()}');
         }
       });
       return lines.isNotEmpty ? lines.join('\n') : defaultValue;
     }
     if (value is List) {
-      return value.isNotEmpty ? value.map((item) => '- $item').join('\n') : defaultValue;
+      if (value.isEmpty) return defaultValue;
+      final lines = <String>[];
+      for (var item in value) {
+        if (item is String) {
+          lines.add('• $item');
+        } else if (item is Map) {
+          // Format map items nicely
+          final parts = <String>[];
+          item.forEach((k, v) {
+            parts.add('${_formatKey(k.toString())}: $v');
+          });
+          lines.add('• ${parts.join(', ')}');
+        } else {
+          lines.add('• ${item.toString()}');
+        }
+      }
+      return lines.join('\n');
     }
     return value.toString();
   }
 
-  /// Extract field from potentially malformed JSON or text
-  String? _extractField(String text, String fieldName) {
-    // Try JSON-like format
-    final jsonPattern = RegExp('"$fieldName"\\s*:\\s*"([^"]*)"', caseSensitive: false);
-    final jsonMatch = jsonPattern.firstMatch(text);
-    if (jsonMatch != null) {
-      return jsonMatch.group(1);
-    }
-
-    // Try plain text format
-    final textPattern = RegExp('$fieldName[:\\s]+([^\\n]+)', caseSensitive: false);
-    final textMatch = textPattern.firstMatch(text);
-    if (textMatch != null) {
-      return textMatch.group(1)?.trim();
-    }
-
-    return null;
+  /// Format a key to be more readable
+  String _formatKey(String key) {
+    return key
+        .replaceAll('_', ' ')
+        .split(' ')
+        .map((word) => word.isNotEmpty 
+            ? '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}' 
+            : '')
+        .join(' ');
   }
 
   /// Regenerate a specific section of the report
   Future<ReportGenerationResult> regenerateSection({
     required String transcription,
-    required String section,
+    required String sectionName,
     required String currentContent,
     String? feedback,
+    ReportTemplateConfig? templateConfig,
   }) async {
     try {
-      final sectionPrompts = {
-        'chief_complaint': 'Provide a concise 1-2 sentence summary of the primary reason for this visit.',
-        'symptoms': 'List all symptoms mentioned, including duration, severity, and any associated factors. Use bullet points.',
-        'diagnosis': 'Provide a clinical assessment/diagnosis based on the symptoms presented.',
-        'prescription': 'List all medications with proper format: Drug name, strength, route, frequency, duration.',
-        'additional_notes': 'Include follow-up instructions, lifestyle advice, warning signs, and when to return.',
-      };
+      // Get tone from template config
+      String toneInstruction = 'Use professional medical language.';
+      if (templateConfig != null) {
+        switch (templateConfig.tone) {
+          case 'simple':
+            toneInstruction = 'Use simple, easy-to-understand language.';
+            break;
+          case 'technical':
+            toneInstruction = 'Use precise medical terminology.';
+            break;
+        }
+      }
 
-      final sectionInstruction = sectionPrompts[section] ?? 'Regenerate the $section section.';
-
-      final userPrompt = '''Based on the medical consultation transcription below, regenerate the "$section" section.
+      final userPrompt = '''Based on the medical consultation transcription below, regenerate the "$sectionName" section.
 
 Current content that needs improvement:
 $currentContent
@@ -193,7 +368,7 @@ ${feedback != null ? 'Doctor feedback: $feedback' : ''}
 $transcription
 === END TRANSCRIPTION ===
 
-Instructions: $sectionInstruction
+Instructions: Regenerate the "$sectionName" section. $toneInstruction
 
 Provide only the content for this section, no JSON formatting needed.''';
 
@@ -220,7 +395,7 @@ Provide only the content for this section, no JSON formatting needed.''';
         
         // Return with the regenerated section
         return ReportGenerationResult.sectionRegenerated(
-          section: section,
+          sectionKey: _sectionToKey(sectionName),
           content: content.trim(),
         );
       } else {
@@ -235,27 +410,30 @@ Provide only the content for this section, no JSON formatting needed.''';
 /// Result of report generation operation
 class ReportGenerationResult {
   final bool success;
-  final String? chiefComplaint;
-  final String? symptoms;
-  final String? diagnosis;
-  final String? prescription;
-  final String? additionalNotes;
-  final String? regeneratedSection;
+  final Map<String, String>? sections;
+  final String? regeneratedSectionKey;
   final String? regeneratedContent;
   final String? error;
 
   ReportGenerationResult._({
     required this.success,
-    this.chiefComplaint,
-    this.symptoms,
-    this.diagnosis,
-    this.prescription,
-    this.additionalNotes,
-    this.regeneratedSection,
+    this.sections,
+    this.regeneratedSectionKey,
     this.regeneratedContent,
     this.error,
   });
 
+  /// Create success result with dynamic sections
+  factory ReportGenerationResult.successWithSections({
+    required Map<String, String> sections,
+  }) {
+    return ReportGenerationResult._(
+      success: true,
+      sections: sections,
+    );
+  }
+
+  /// Legacy success constructor for backward compatibility
   factory ReportGenerationResult.success({
     required String chiefComplaint,
     required String symptoms,
@@ -265,21 +443,23 @@ class ReportGenerationResult {
   }) {
     return ReportGenerationResult._(
       success: true,
-      chiefComplaint: chiefComplaint,
-      symptoms: symptoms,
-      diagnosis: diagnosis,
-      prescription: prescription,
-      additionalNotes: additionalNotes,
+      sections: {
+        'chief_complaint': chiefComplaint,
+        'symptoms': symptoms,
+        'diagnosis': diagnosis,
+        'prescription': prescription,
+        'additional_notes': additionalNotes,
+      },
     );
   }
 
   factory ReportGenerationResult.sectionRegenerated({
-    required String section,
+    required String sectionKey,
     required String content,
   }) {
     return ReportGenerationResult._(
       success: true,
-      regeneratedSection: section,
+      regeneratedSectionKey: sectionKey,
       regeneratedContent: content,
     );
   }
@@ -290,5 +470,14 @@ class ReportGenerationResult {
       error: error,
     );
   }
-}
 
+  // Legacy getters for backward compatibility
+  String? get chiefComplaint => sections?['chief_complaint'];
+  String? get symptoms => sections?['symptoms'];
+  String? get diagnosis => sections?['diagnosis'];
+  String? get prescription => sections?['prescription'];
+  String? get additionalNotes => sections?['additional_notes'];
+  
+  // Legacy getter names
+  String? get regeneratedSection => regeneratedSectionKey;
+}

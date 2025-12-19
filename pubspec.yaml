@@ -43,6 +43,9 @@ dependencies:
   
   # Audio file handling
   just_audio: ^0.9.37
+  
+  # Local storage for templates
+  shared_preferences: ^2.2.2
 
 dev_dependencies:
   flutter_test:

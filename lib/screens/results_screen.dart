@@ -1,8 +1,10 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../models/consultation.dart';
+import '../models/report.dart';
 import '../providers/consultation_provider.dart';
 import 'home_screen.dart';
 
@@ -22,10 +24,85 @@ class _ResultsScreenState extends State<ResultsScreen> {
   late Consultation _consultation;
   bool _isRegenerating = false;
 
+  // Color palette for sections
+  final List<Color> _sectionColors = [
+    AppTheme.accentCoral,
+    AppTheme.warningAmber,
+    AppTheme.primarySkyBlue,
+    AppTheme.successGreen,
+    AppTheme.deepSkyBlue,
+    const Color(0xFF8B5CF6), // Purple
+    const Color(0xFFEC4899), // Pink
+    const Color(0xFF14B8A6), // Teal
+    const Color(0xFFF97316), // Orange
+    const Color(0xFF6366F1), // Indigo
+  ];
+
+  // Icon mapping for common sections
+  final Map<String, IconData> _sectionIcons = {
+    'chief_complaint': Icons.report_problem_rounded,
+    'reason_for_follow_up': Icons.report_problem_rounded,
+    'symptoms': Icons.medical_information_rounded,
+    'diagnosis': Icons.health_and_safety_rounded,
+    'assessment': Icons.health_and_safety_rounded,
+    'prescription': Icons.medication_rounded,
+    'your_medications': Icons.medication_rounded,
+    'medications': Icons.medication_rounded,
+    'additional_notes': Icons.note_alt_rounded,
+    'notes': Icons.note_alt_rounded,
+    'history': Icons.history_rounded,
+    'history_of_present_illness': Icons.history_rounded,
+    'past_medical': Icons.folder_shared_rounded,
+    'past_medical_history': Icons.folder_shared_rounded,
+    'family_history': Icons.family_restroom_rounded,
+    'social_history': Icons.people_rounded,
+    'allergies': Icons.warning_rounded,
+    'current_medications': Icons.medication_liquid_rounded,
+    'vitals': Icons.monitor_heart_rounded,
+    'vital_signs': Icons.monitor_heart_rounded,
+    'physical_exam': Icons.person_search_rounded,
+    'physical_examination': Icons.person_search_rounded,
+    'differential': Icons.compare_arrows_rounded,
+    'differential_diagnosis': Icons.compare_arrows_rounded,
+    'investigations': Icons.science_rounded,
+    'treatment_plan': Icons.healing_rounded,
+    'plan': Icons.healing_rounded,
+    'advice': Icons.tips_and_updates_rounded,
+    'advice_instructions': Icons.tips_and_updates_rounded,
+    'instructions': Icons.tips_and_updates_rounded,
+    'what_to_do': Icons.tips_and_updates_rounded,
+    'follow_up': Icons.event_rounded,
+    'next_visit': Icons.event_rounded,
+    'prognosis': Icons.trending_up_rounded,
+    'subjective': Icons.record_voice_over_rounded,
+    'objective': Icons.visibility_rounded,
+    'summary': Icons.summarize_rounded,
+    'what_we_found': Icons.summarize_rounded,
+    'warning_signs': Icons.warning_amber_rounded,
+    'when_to_call': Icons.warning_amber_rounded,
+    'referral_reason': Icons.send_rounded,
+    'progress': Icons.trending_up_rounded,
+    'progress_since_last_visit': Icons.trending_up_rounded,
+    'plan_update': Icons.update_rounded,
+    'updated_treatment_plan': Icons.update_rounded,
+    'clinical_findings': Icons.find_in_page_rounded,
+    'provisional_diagnosis': Icons.pending_actions_rounded,
+    'specific_questions': Icons.help_outline_rounded,
+    'specific_questions_for_specialist': Icons.help_outline_rounded,
+  };
+
   @override
   void initState() {
     super.initState();
     _consultation = widget.consultation;
+  }
+
+  Color _getSectionColor(int index) {
+    return _sectionColors[index % _sectionColors.length];
+  }
+
+  IconData _getSectionIcon(String key) {
+    return _sectionIcons[key] ?? Icons.article_rounded;
   }
 
   @override
@@ -128,46 +205,26 @@ class _ResultsScreenState extends State<ResultsScreen> {
                     AppTheme.mediumGray,
                   ),
                 const SizedBox(height: 16),
-                // Chief complaint
+                // Dynamic report sections
                 if (report != null) ...[
-                  _buildSectionCard(
-                    'Chief Complaint',
-                    Icons.report_problem_rounded,
-                    report.chiefComplaint,
-                    AppTheme.accentCoral,
-                  ),
-                  const SizedBox(height: 16),
-                  // Symptoms
-                  _buildSectionCard(
-                    'Symptoms',
-                    Icons.medical_information_rounded,
-                    report.symptoms,
-                    AppTheme.warningAmber,
-                  ),
-                  const SizedBox(height: 16),
-                  // Diagnosis
-                  _buildSectionCard(
-                    'Diagnosis',
-                    Icons.health_and_safety_rounded,
-                    report.diagnosis,
-                    AppTheme.primarySkyBlue,
-                  ),
-                  const SizedBox(height: 16),
-                  // Prescription
-                  _buildSectionCard(
-                    'Prescription',
-                    Icons.medication_rounded,
-                    report.prescription,
-                    AppTheme.successGreen,
-                  ),
-                  const SizedBox(height: 16),
-                  // Notes
-                  _buildSectionCard(
-                    'Additional Notes',
-                    Icons.note_alt_rounded,
-                    report.additionalNotes,
-                    AppTheme.deepSkyBlue,
-                  ),
+                  ...report.sectionKeys.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final key = entry.value;
+                    final content = report.sections[key] ?? '';
+                    final displayName = Report.keyToDisplayName(key);
+                    final color = _getSectionColor(index);
+                    final icon = _getSectionIcon(key);
+                    
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: _buildSectionCard(
+                        displayName,
+                        icon,
+                        content,
+                        color,
+                      ),
+                    );
+                  }),
                 ] else
                   _buildNoReportCard(),
                 const SizedBox(height: 100),
@@ -261,6 +318,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
   }
 
   Widget _buildSuccessHeader() {
+    final sectionCount = _consultation.report?.sections.length ?? 0;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -305,7 +363,9 @@ class _ResultsScreenState extends State<ResultsScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Review the consultation notes below',
+                  sectionCount > 0 
+                      ? '$sectionCount sections generated'
+                      : 'Review the consultation notes below',
                   style: GoogleFonts.poppins(
                     fontSize: 13,
                     color: Colors.white.withOpacity(0.9),
@@ -455,6 +515,9 @@ class _ResultsScreenState extends State<ResultsScreen> {
 
   Widget _buildSectionCard(
       String title, IconData icon, String content, Color accentColor) {
+    // Format the content for better display
+    final formattedContent = _formatSectionContent(content);
+    
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -482,12 +545,14 @@ class _ResultsScreenState extends State<ResultsScreen> {
                 child: Icon(icon, color: accentColor, size: 22),
               ),
               const SizedBox(width: 12),
-              Text(
-                title,
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.darkSlate,
+              Expanded(
+                child: Text(
+                  title,
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.darkSlate,
+                  ),
                 ),
               ),
             ],
@@ -503,14 +568,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                 color: accentColor.withOpacity(0.1),
               ),
             ),
-            child: Text(
-              content.isNotEmpty ? content : 'Not documented',
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                color: AppTheme.darkSlate,
-                height: 1.6,
-              ),
-            ),
+            child: _buildFormattedContent(formattedContent, accentColor),
           ),
         ],
       ),
@@ -741,9 +799,9 @@ class _ResultsScreenState extends State<ResultsScreen> {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  _buildSuggestionChip('More detailed diagnosis', instructionsController),
+                  _buildSuggestionChip('More detailed', instructionsController),
                   _buildSuggestionChip('Simpler language', instructionsController),
-                  _buildSuggestionChip('Add more symptoms', instructionsController),
+                  _buildSuggestionChip('Add more sections', instructionsController),
                   _buildSuggestionChip('Focus on prescription', instructionsController),
                 ],
               ),
@@ -941,6 +999,190 @@ class _ResultsScreenState extends State<ResultsScreen> {
       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
     ];
     return '${date.day} ${months[date.month - 1]} ${date.year}, ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+  }
+
+  /// Format section content for better display
+  String _formatSectionContent(String content) {
+    if (content.isEmpty) return 'Not documented';
+    
+    String formatted = content;
+    
+    // Try to parse as JSON if it looks like JSON
+    if (formatted.trim().startsWith('{') || formatted.trim().startsWith('[')) {
+      try {
+        final parsed = jsonDecode(formatted);
+        formatted = _jsonToReadableText(parsed);
+      } catch (e) {
+        // Not valid JSON, continue with string processing
+      }
+    }
+    
+    // Clean up common formatting issues
+    formatted = formatted
+        .replaceAll('\\n', '\n')
+        .replaceAll('\\"', '"')
+        .replaceAll('**', '')  // Remove markdown bold
+        .replaceAll('###', '')  // Remove markdown headers
+        .replaceAll('##', '')
+        .replaceAll('```', '')  // Remove code blocks
+        .trim();
+    
+    // Convert markdown-style lists to clean format
+    formatted = formatted
+        .replaceAll(RegExp(r'^\s*[-*]\s+', multiLine: true), '• ')
+        .replaceAll(RegExp(r'^\s*\d+\.\s+', multiLine: true), '• ');
+    
+    return formatted.isNotEmpty ? formatted : 'Not documented';
+  }
+
+  /// Convert JSON object to readable text
+  String _jsonToReadableText(dynamic json, {int indent = 0}) {
+    final buffer = StringBuffer();
+    final indentStr = '  ' * indent;
+    
+    if (json is Map) {
+      json.forEach((key, value) {
+        final formattedKey = _formatKeyName(key.toString());
+        if (value is String) {
+          if (value.isNotEmpty) {
+            buffer.writeln('$indentStr• $formattedKey: $value');
+          }
+        } else if (value is List) {
+          buffer.writeln('$indentStr• $formattedKey:');
+          for (var item in value) {
+            if (item is String) {
+              buffer.writeln('$indentStr  - $item');
+            } else if (item is Map) {
+              final parts = <String>[];
+              item.forEach((k, v) {
+                if (v != null && v.toString().isNotEmpty) {
+                  parts.add('${_formatKeyName(k.toString())}: $v');
+                }
+              });
+              if (parts.isNotEmpty) {
+                buffer.writeln('$indentStr  - ${parts.join(', ')}');
+              }
+            } else {
+              buffer.writeln('$indentStr  - $item');
+            }
+          }
+        } else if (value is Map) {
+          buffer.writeln('$indentStr• $formattedKey:');
+          buffer.write(_jsonToReadableText(value, indent: indent + 1));
+        } else if (value != null) {
+          buffer.writeln('$indentStr• $formattedKey: $value');
+        }
+      });
+    } else if (json is List) {
+      for (var item in json) {
+        if (item is String) {
+          buffer.writeln('$indentStr• $item');
+        } else if (item is Map) {
+          buffer.write(_jsonToReadableText(item, indent: indent));
+        } else {
+          buffer.writeln('$indentStr• $item');
+        }
+      }
+    } else {
+      buffer.write(json.toString());
+    }
+    
+    return buffer.toString().trim();
+  }
+
+  /// Format a key name to be more readable
+  String _formatKeyName(String key) {
+    return key
+        .replaceAll('_', ' ')
+        .replaceAll('-', ' ')
+        .split(' ')
+        .map((word) => word.isNotEmpty 
+            ? '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}' 
+            : '')
+        .join(' ');
+  }
+
+  /// Build formatted content widget with proper styling for bullet points
+  Widget _buildFormattedContent(String content, Color accentColor) {
+    if (content.isEmpty || content == 'Not documented') {
+      return Text(
+        'Not documented',
+        style: GoogleFonts.poppins(
+          fontSize: 14,
+          color: AppTheme.mediumGray,
+          fontStyle: FontStyle.italic,
+        ),
+      );
+    }
+
+    // Check if content has bullet points
+    final hasBullets = content.contains('•') || content.contains('- ');
+    
+    if (hasBullets) {
+      // Parse and display as structured list
+      final lines = content.split('\n').where((line) => line.trim().isNotEmpty).toList();
+      
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: lines.map((line) {
+          final trimmedLine = line.trim();
+          final isBullet = trimmedLine.startsWith('•') || trimmedLine.startsWith('- ');
+          final isSubItem = line.startsWith('  ') || line.startsWith('\t');
+          
+          String displayText = trimmedLine;
+          if (isBullet) {
+            displayText = trimmedLine.substring(1).trim();
+            if (displayText.startsWith(' ')) {
+              displayText = displayText.substring(1);
+            }
+          }
+          
+          return Padding(
+            padding: EdgeInsets.only(
+              bottom: 8,
+              left: isSubItem ? 16 : 0,
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (isBullet) ...[
+                  Container(
+                    margin: const EdgeInsets.only(top: 6, right: 8),
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: isSubItem ? accentColor.withOpacity(0.5) : accentColor,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ],
+                Expanded(
+                  child: Text(
+                    isBullet ? displayText : trimmedLine,
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      color: AppTheme.darkSlate,
+                      height: 1.5,
+                      fontWeight: isSubItem ? FontWeight.normal : FontWeight.w400,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      );
+    }
+    
+    // Regular text without bullets
+    return Text(
+      content,
+      style: GoogleFonts.poppins(
+        fontSize: 14,
+        color: AppTheme.darkSlate,
+        height: 1.6,
+      ),
+    );
   }
 }
 

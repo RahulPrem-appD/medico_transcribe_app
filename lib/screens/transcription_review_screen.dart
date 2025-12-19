@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
-import 'processing_screen.dart';
+import 'template_selection_screen.dart';
 
 class TranscriptionReviewScreen extends StatefulWidget {
   final String transcription;
@@ -1177,10 +1177,10 @@ class _TranscriptionReviewScreenState extends State<TranscriptionReviewScreen>
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.auto_awesome_rounded, size: 20),
+                    const Icon(Icons.article_rounded, size: 20),
                     const SizedBox(width: 8),
                     Text(
-                      'Generate Report',
+                      'Choose Template',
                       style: GoogleFonts.poppins(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
@@ -1197,11 +1197,12 @@ class _TranscriptionReviewScreenState extends State<TranscriptionReviewScreen>
   }
 
   void _navigateToReportGeneration() {
+    // Navigate to template selection screen
     Navigator.pushReplacement(
       context,
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) =>
-            ReportGenerationScreen(
+            TemplateSelectionScreen(
               consultationId: widget.consultationId,
               transcription: _transcriptionController.text,
               language: widget.language,

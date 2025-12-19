@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../models/consultation.dart';
+import '../models/report_template.dart';
 import '../services/consultation_service.dart';
 
 /// Provider for managing consultation state
@@ -92,6 +93,8 @@ class ConsultationProvider extends ChangeNotifier {
     required String transcription,
     required String language,
     String? patientName,
+    String? additionalInstructions,
+    ReportTemplateConfig? templateConfig,
   }) async {
     _isProcessing = true;
     _error = null;
@@ -105,6 +108,8 @@ class ConsultationProvider extends ChangeNotifier {
         transcription: transcription,
         language: language,
         patientName: patientName,
+        additionalInstructions: additionalInstructions,
+        templateConfig: templateConfig,
         onStatusChange: (status, message) {
           _processingStatus = status;
           _processingMessage = message;

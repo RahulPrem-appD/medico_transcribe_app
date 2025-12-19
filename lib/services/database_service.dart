@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/consultation.dart';
@@ -26,8 +27,9 @@ class DatabaseService {
 
       _database = await openDatabase(
         path,
-        version: 1,
+        version: 2, // Increment version for migration
         onCreate: _createTables,
+        onUpgrade: _onUpgrade,
       );
 
       _isInitialized = true;
@@ -56,11 +58,12 @@ class DatabaseService {
       )
     ''');
 
-    // Create reports table
+    // Create reports table with sections column for dynamic sections
     await db.execute('''
       CREATE TABLE reports (
         id TEXT PRIMARY KEY,
         consultation_id TEXT NOT NULL,
+        sections TEXT,
         chief_complaint TEXT,
         symptoms TEXT,
         diagnosis TEXT,
@@ -74,6 +77,20 @@ class DatabaseService {
     ''');
 
     print('Database tables created');
+  }
+
+  /// Handle database migrations
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // Add sections column if not exists
+      try {
+        await db.execute('ALTER TABLE reports ADD COLUMN sections TEXT');
+        print('Added sections column to reports table');
+      } catch (e) {
+        // Column might already exist
+        print('Migration note: $e');
+      }
+    }
   }
 
   /// Create a new consultation
@@ -145,28 +162,26 @@ class DatabaseService {
     );
   }
 
-  /// Create a report for a consultation
-  Future<Report> createReport({
+  /// Create a report for a consultation with dynamic sections
+  Future<Report> createReportWithSections({
     required String consultationId,
-    required String chiefComplaint,
-    required String symptoms,
-    required String diagnosis,
-    required String prescription,
-    required String additionalNotes,
+    required Map<String, String> sections,
   }) async {
     await _ensureConnection();
 
     final id = _uuid.v4();
     final now = DateTime.now().toIso8601String();
 
+    // Store sections as JSON and also extract legacy fields for backward compatibility
     await _database!.insert('reports', {
       'id': id,
       'consultation_id': consultationId,
-      'chief_complaint': chiefComplaint,
-      'symptoms': symptoms,
-      'diagnosis': diagnosis,
-      'prescription': prescription,
-      'additional_notes': additionalNotes,
+      'sections': jsonEncode(sections),
+      'chief_complaint': sections['chief_complaint'] ?? '',
+      'symptoms': sections['symptoms'] ?? '',
+      'diagnosis': sections['diagnosis'] ?? sections['assessment'] ?? '',
+      'prescription': sections['prescription'] ?? sections['your_medications'] ?? '',
+      'additional_notes': sections['additional_notes'] ?? sections['notes'] ?? '',
       'generated_by': 'feather_ai',
       'created_at': now,
       'updated_at': now,
@@ -190,6 +205,27 @@ class DatabaseService {
     );
 
     return Report.fromRow(_convertRow(result.first));
+  }
+
+  /// Create a report for a consultation (legacy method for backward compatibility)
+  Future<Report> createReport({
+    required String consultationId,
+    required String chiefComplaint,
+    required String symptoms,
+    required String diagnosis,
+    required String prescription,
+    required String additionalNotes,
+  }) async {
+    return createReportWithSections(
+      consultationId: consultationId,
+      sections: {
+        'chief_complaint': chiefComplaint,
+        'symptoms': symptoms,
+        'diagnosis': diagnosis,
+        'prescription': prescription,
+        'additional_notes': additionalNotes,
+      },
+    );
   }
 
   /// Get all consultations
@@ -219,19 +255,7 @@ class DatabaseService {
       );
 
       if (reportResult.isNotEmpty) {
-        final reportRow = _convertRow(reportResult.first);
-        consultation.report = Report(
-          id: reportRow['id'].toString(),
-          consultationId: consultation.id,
-          chiefComplaint: reportRow['chief_complaint'] ?? '',
-          symptoms: reportRow['symptoms'] ?? '',
-          diagnosis: reportRow['diagnosis'] ?? '',
-          prescription: reportRow['prescription'] ?? '',
-          additionalNotes: reportRow['additional_notes'] ?? '',
-          generatedBy: reportRow['generated_by'] ?? 'feather_ai',
-          createdAt: _parseDateTime(reportRow['created_at']),
-          updatedAt: _parseDateTime(reportRow['updated_at']),
-        );
+        consultation.report = Report.fromRow(_convertRow(reportResult.first));
       }
 
       consultations.add(consultation);
@@ -262,19 +286,7 @@ class DatabaseService {
     );
 
     if (reportResult.isNotEmpty) {
-      final reportRow = _convertRow(reportResult.first);
-      consultation.report = Report(
-        id: reportRow['id'].toString(),
-        consultationId: consultation.id,
-        chiefComplaint: reportRow['chief_complaint'] ?? '',
-        symptoms: reportRow['symptoms'] ?? '',
-        diagnosis: reportRow['diagnosis'] ?? '',
-        prescription: reportRow['prescription'] ?? '',
-        additionalNotes: reportRow['additional_notes'] ?? '',
-        generatedBy: reportRow['generated_by'] ?? 'feather_ai',
-        createdAt: _parseDateTime(reportRow['created_at']),
-        updatedAt: _parseDateTime(reportRow['updated_at']),
-      );
+      consultation.report = Report.fromRow(_convertRow(reportResult.first));
     }
 
     return consultation;

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../providers/consultation_provider.dart';
 import '../models/consultation.dart';
+import '../models/report_template.dart';
 import 'transcription_review_screen.dart';
 import 'results_screen.dart';
 
@@ -505,6 +506,7 @@ class ReportGenerationScreen extends StatefulWidget {
   final String language;
   final String? patientName;
   final String duration;
+  final ReportTemplate? template;
 
   const ReportGenerationScreen({
     super.key,
@@ -513,6 +515,7 @@ class ReportGenerationScreen extends StatefulWidget {
     required this.language,
     this.patientName,
     required this.duration,
+    this.template,
   });
 
   @override
@@ -554,6 +557,7 @@ class _ReportGenerationScreenState extends State<ReportGenerationScreen>
       transcription: widget.transcription,
       language: widget.language,
       patientName: widget.patientName,
+      templateConfig: widget.template?.config,
     );
 
     if (!mounted) return;

@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import '../models/consultation.dart';
+import '../models/report_template.dart';
 import 'database_service.dart';
 import 'sarvam_service.dart';
 import 'feather_service.dart';
@@ -114,6 +115,8 @@ class ConsultationService {
     required String transcription,
     required String language,
     String? patientName,
+    String? additionalInstructions,
+    ReportTemplateConfig? templateConfig,
     Function(ConsultationStatus status, String? message)? onStatusChange,
   }) async {
     try {
@@ -134,6 +137,8 @@ class ConsultationService {
         transcription: transcription,
         language: language,
         patientName: patientName,
+        additionalInstructions: additionalInstructions,
+        templateConfig: templateConfig,
       );
 
       if (!reportResult.success) {
@@ -148,15 +153,23 @@ class ConsultationService {
         );
       }
 
-      // Save report to database
-      await _db.createReport(
-        consultationId: consultationId,
-        chiefComplaint: reportResult.chiefComplaint!,
-        symptoms: reportResult.symptoms!,
-        diagnosis: reportResult.diagnosis!,
-        prescription: reportResult.prescription!,
-        additionalNotes: reportResult.additionalNotes!,
-      );
+      // Save report to database with dynamic sections
+      if (reportResult.sections != null) {
+        await _db.createReportWithSections(
+          consultationId: consultationId,
+          sections: reportResult.sections!,
+        );
+      } else {
+        // Fallback for legacy response
+        await _db.createReport(
+          consultationId: consultationId,
+          chiefComplaint: reportResult.chiefComplaint ?? '',
+          symptoms: reportResult.symptoms ?? '',
+          diagnosis: reportResult.diagnosis ?? '',
+          prescription: reportResult.prescription ?? '',
+          additionalNotes: reportResult.additionalNotes ?? '',
+        );
+      }
 
       print('Report created successfully');
       onStatusChange?.call(
@@ -329,6 +342,7 @@ class ConsultationService {
   Future<ProcessingResult> regenerateReport({
     required String consultationId,
     String? additionalInstructions,
+    ReportTemplateConfig? templateConfig,
     Function(ConsultationStatus status, String? message)? onStatusChange,
   }) async {
     try {
@@ -363,6 +377,7 @@ class ConsultationService {
         language: consultation.language,
         patientName: consultation.patientName,
         additionalInstructions: additionalInstructions,
+        templateConfig: templateConfig,
       );
 
       if (!reportResult.success) {
@@ -377,16 +392,22 @@ class ConsultationService {
         );
       }
 
-      // Delete existing report and create new one
-      // (cascade delete handles this, but we're creating new)
-      await _db.createReport(
-        consultationId: consultationId,
-        chiefComplaint: reportResult.chiefComplaint!,
-        symptoms: reportResult.symptoms!,
-        diagnosis: reportResult.diagnosis!,
-        prescription: reportResult.prescription!,
-        additionalNotes: reportResult.additionalNotes!,
-      );
+      // Delete existing report and create new one with dynamic sections
+      if (reportResult.sections != null) {
+        await _db.createReportWithSections(
+          consultationId: consultationId,
+          sections: reportResult.sections!,
+        );
+      } else {
+        await _db.createReport(
+          consultationId: consultationId,
+          chiefComplaint: reportResult.chiefComplaint ?? '',
+          symptoms: reportResult.symptoms ?? '',
+          diagnosis: reportResult.diagnosis ?? '',
+          prescription: reportResult.prescription ?? '',
+          additionalNotes: reportResult.additionalNotes ?? '',
+        );
+      }
 
       onStatusChange?.call(ConsultationStatus.completed, 'Report regenerated!');
 
