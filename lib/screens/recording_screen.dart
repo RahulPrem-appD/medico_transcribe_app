@@ -6,6 +6,7 @@ import 'package:record/record.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../theme/app_theme.dart';
+import '../widgets/analog_timer.dart';
 import 'processing_screen.dart';
 
 class RecordingScreen extends StatefulWidget {
@@ -32,9 +33,8 @@ class _RecordingScreenState extends State<RecordingScreen>
   Timer? _timer;
   String? _recordingPath;
   late AnimationController _pulseController;
-  late AnimationController _waveController;
   late Animation<double> _pulseAnimation;
-  final List<double> _waveformData = List.generate(50, (_) => 0.3);
+  final List<double> _waveformData = List.generate(40, (_) => 0.3);
   final Random _random = Random();
 
   @override
@@ -48,10 +48,6 @@ class _RecordingScreenState extends State<RecordingScreen>
     _pulseAnimation = Tween<double>(begin: 1.0, end: 1.15).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
-    _waveController = AnimationController(
-      duration: const Duration(milliseconds: 100),
-      vsync: this,
-    );
     _checkPermission();
   }
 
@@ -60,7 +56,7 @@ class _RecordingScreenState extends State<RecordingScreen>
     setState(() {
       _hasPermission = status.isGranted;
     });
-    
+
     if (!status.isGranted) {
       _showPermissionDialog();
     }
@@ -75,18 +71,18 @@ class _RecordingScreenState extends State<RecordingScreen>
         ),
         title: Text(
           'Microphone Permission Required',
-          style: GoogleFonts.dmSans(fontWeight: FontWeight.w600),
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
         ),
         content: Text(
           'Please grant microphone permission to record consultations.',
-          style: GoogleFonts.dmSans(color: AppTheme.mediumGray),
+          style: GoogleFonts.poppins(color: AppTheme.mediumGray),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(
               'Cancel',
-              style: GoogleFonts.dmSans(color: AppTheme.mediumGray),
+              style: GoogleFonts.poppins(color: AppTheme.mediumGray),
             ),
           ),
           TextButton(
@@ -96,8 +92,8 @@ class _RecordingScreenState extends State<RecordingScreen>
             },
             child: Text(
               'Open Settings',
-              style: GoogleFonts.dmSans(
-                color: AppTheme.primaryTeal,
+              style: GoogleFonts.poppins(
+                color: AppTheme.primarySkyBlue,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -111,7 +107,6 @@ class _RecordingScreenState extends State<RecordingScreen>
   void dispose() {
     _timer?.cancel();
     _pulseController.dispose();
-    _waveController.dispose();
     _recorder.dispose();
     super.dispose();
   }
@@ -140,7 +135,7 @@ class _RecordingScreenState extends State<RecordingScreen>
         _isRecording = true;
         _isPaused = false;
       });
-      
+
       _pulseController.repeat(reverse: true);
       _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
         setState(() {
@@ -195,24 +190,21 @@ class _RecordingScreenState extends State<RecordingScreen>
 
     try {
       final path = await _recorder.stop();
-      
+
       if (path != null && mounted) {
-        // Navigate to processing screen
         Navigator.pushReplacement(
           context,
           PageRouteBuilder(
             pageBuilder: (context, animation, secondaryAnimation) =>
                 ProcessingScreen(
-                  audioFilePath: path,
-                  language: widget.language,
-                  patientName: widget.patientName,
-                  duration: _formatDuration(_recordingSeconds),
-                ),
-            transitionsBuilder: (context, animation, secondaryAnimation, child) {
-              return FadeTransition(
-                opacity: animation,
-                child: child,
-              );
+              audioFilePath: path,
+              language: widget.language,
+              patientName: widget.patientName,
+              duration: _formatDuration(_recordingSeconds),
+            ),
+            transitionsBuilder:
+                (context, animation, secondaryAnimation, child) {
+              return FadeTransition(opacity: animation, child: child);
             },
             transitionDuration: const Duration(milliseconds: 500),
           ),
@@ -248,13 +240,13 @@ class _RecordingScreenState extends State<RecordingScreen>
             end: Alignment.bottomCenter,
             colors: _isRecording && !_isPaused
                 ? [
-                    AppTheme.primaryTeal.withOpacity(0.1),
-                    AppTheme.warmCream,
+                    AppTheme.softSkyBg,
+                    AppTheme.paleBlue.withOpacity(0.3),
                     AppTheme.accentCoral.withOpacity(0.05),
                   ]
                 : [
-                    AppTheme.softMint,
-                    AppTheme.warmCream,
+                    AppTheme.softSkyBg,
+                    AppTheme.paleBlue.withOpacity(0.5),
                   ],
           ),
         ),
@@ -310,9 +302,10 @@ class _RecordingScreenState extends State<RecordingScreen>
           Expanded(
             child: Center(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
-                  color: AppTheme.primaryTeal.withOpacity(0.1),
+                  color: AppTheme.primarySkyBlue.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Row(
@@ -320,16 +313,16 @@ class _RecordingScreenState extends State<RecordingScreen>
                   children: [
                     const Icon(
                       Icons.translate_rounded,
-                      color: AppTheme.primaryTeal,
+                      color: AppTheme.primarySkyBlue,
                       size: 18,
                     ),
                     const SizedBox(width: 8),
                     Text(
                       widget.language,
-                      style: GoogleFonts.dmSans(
+                      style: GoogleFonts.poppins(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: AppTheme.primaryTeal,
+                        color: AppTheme.primarySkyBlue,
                       ),
                     ),
                   ],
@@ -348,173 +341,112 @@ class _RecordingScreenState extends State<RecordingScreen>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           // Patient name if provided
           if (widget.patientName != null && widget.patientName!.isNotEmpty)
+            Container(
+              margin: const EdgeInsets.only(bottom: 20),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.person_rounded,
+                    color: AppTheme.primarySkyBlue,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    widget.patientName!,
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.darkSlate,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          // Analog Timer
+          AnalogTimer(
+            seconds: _recordingSeconds,
+            isRecording: _isRecording,
+            isPaused: _isPaused,
+            size: 260,
+          ),
+          const SizedBox(height: 32),
+          // Waveform visualization
+          SizedBox(
+            height: 60,
+            child: _buildWaveform(),
+          ),
+          const SizedBox(height: 24),
+          // Instructions or status
+          if (!_isRecording)
             Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: Text(
-                'Patient: ${widget.patientName}',
-                style: GoogleFonts.dmSans(
-                  fontSize: 16,
-                  color: AppTheme.mediumGray,
+              padding: const EdgeInsets.symmetric(horizontal: 40),
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      blurRadius: 15,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    Icon(
+                      _hasPermission
+                          ? Icons.tips_and_updates_rounded
+                          : Icons.mic_off_rounded,
+                      color: _hasPermission
+                          ? AppTheme.warningAmber
+                          : AppTheme.accentCoral,
+                      size: 28,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      _hasPermission
+                          ? 'Tips for better transcription'
+                          : 'Microphone permission required',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.darkSlate,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _hasPermission
+                          ? 'Speak clearly and keep the device close. Minimize background noise for accurate results.'
+                          : 'Please grant microphone permission to start recording consultations.',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        color: AppTheme.mediumGray,
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-          // Status indicator
-          AnimatedSwitcher(
-          duration: const Duration(milliseconds: 300),
-          child: _isRecording
-              ? Container(
-                  key: const ValueKey('recording'),
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: _isPaused
-                        ? AppTheme.warningAmber.withOpacity(0.1)
-                        : AppTheme.accentCoral.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 10,
-                        height: 10,
-                        decoration: BoxDecoration(
-                          color: _isPaused
-                              ? AppTheme.warningAmber
-                              : AppTheme.accentCoral,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        _isPaused ? 'Paused' : 'Recording',
-                        style: GoogleFonts.dmSans(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: _isPaused
-                              ? AppTheme.warningAmber
-                              : AppTheme.accentCoral,
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              : Container(
-                  key: const ValueKey('ready'),
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: _hasPermission
-                        ? AppTheme.successGreen.withOpacity(0.1)
-                        : AppTheme.accentCoral.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 10,
-                        height: 10,
-                        decoration: BoxDecoration(
-                          color: _hasPermission
-                              ? AppTheme.successGreen
-                              : AppTheme.accentCoral,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        _hasPermission ? 'Ready to record' : 'Permission required',
-                        style: GoogleFonts.dmSans(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: _hasPermission
-                              ? AppTheme.successGreen
-                              : AppTheme.accentCoral,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-        ),
-        const SizedBox(height: 24),
-        // Timer display
-        Text(
-          _formatDuration(_recordingSeconds),
-          style: GoogleFonts.jetBrainsMono(
-            fontSize: 52,
-            fontWeight: FontWeight.w300,
-            color: AppTheme.darkSlate,
-            letterSpacing: 4,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Duration',
-          style: GoogleFonts.dmSans(
-            fontSize: 14,
-            color: AppTheme.mediumGray,
-          ),
-        ),
-        const SizedBox(height: 30),
-        // Waveform visualization
-        SizedBox(
-          height: 80,
-          child: _buildWaveform(),
-        ),
-        const SizedBox(height: 30),
-        // Instructions
-        if (!_isRecording)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 40),
-            child: Column(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.04),
-                        blurRadius: 15,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      const Icon(
-                        Icons.tips_and_updates_rounded,
-                        color: AppTheme.warningAmber,
-                        size: 28,
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'Tips for better transcription',
-                        style: GoogleFonts.dmSans(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.darkSlate,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Speak clearly and keep the device close. Minimize background noise for accurate results.',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.dmSans(
-                          fontSize: 14,
-                          color: AppTheme.mediumGray,
-                          height: 1.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
           const SizedBox(height: 20),
         ],
       ),
@@ -523,26 +455,26 @@ class _RecordingScreenState extends State<RecordingScreen>
 
   Widget _buildWaveform() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: List.generate(_waveformData.length, (index) {
           return AnimatedContainer(
             duration: const Duration(milliseconds: 150),
-            width: 4,
+            width: 3,
             height: _isRecording && !_isPaused
-                ? _waveformData[index] * 100
-                : 20 + (index % 5) * 4.0,
+                ? _waveformData[index] * 60
+                : 12 + (index % 5) * 3.0,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(2),
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: _isRecording && !_isPaused
-                    ? [AppTheme.primaryTeal, AppTheme.accentCoral]
+                    ? [AppTheme.primarySkyBlue, AppTheme.accentCoral]
                     : [
-                        AppTheme.primaryTeal.withOpacity(0.3),
-                        AppTheme.primaryTeal.withOpacity(0.1),
+                        AppTheme.primarySkyBlue.withOpacity(0.3),
+                        AppTheme.primarySkyBlue.withOpacity(0.1),
                       ],
               ),
             ),
@@ -583,7 +515,7 @@ class _RecordingScreenState extends State<RecordingScreen>
               ),
             )
           else
-            const SizedBox(width: 60),
+            const SizedBox(width: 62),
           // Main record button
           GestureDetector(
             onTap: () {
@@ -599,7 +531,8 @@ class _RecordingScreenState extends State<RecordingScreen>
               animation: _pulseAnimation,
               builder: (context, child) {
                 return Transform.scale(
-                  scale: _isRecording && !_isPaused ? _pulseAnimation.value : 1.0,
+                  scale:
+                      _isRecording && !_isPaused ? _pulseAnimation.value : 1.0,
                   child: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
@@ -609,7 +542,7 @@ class _RecordingScreenState extends State<RecordingScreen>
                         BoxShadow(
                           color: _isRecording && !_isPaused
                               ? AppTheme.accentCoral.withOpacity(0.4)
-                              : AppTheme.primaryTeal.withOpacity(0.3),
+                              : AppTheme.primarySkyBlue.withOpacity(0.3),
                           blurRadius: 30,
                           spreadRadius: 5,
                         ),
@@ -625,12 +558,17 @@ class _RecordingScreenState extends State<RecordingScreen>
                           end: Alignment.bottomRight,
                           colors: _isRecording && !_isPaused
                               ? [AppTheme.accentCoral, const Color(0xFFFF7B7B)]
-                              : [AppTheme.primaryTeal, AppTheme.deepTeal],
+                              : [
+                                  AppTheme.primarySkyBlue,
+                                  AppTheme.deepSkyBlue
+                                ],
                         ),
                       ),
                       child: Icon(
                         _isRecording
-                            ? (_isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded)
+                            ? (_isPaused
+                                ? Icons.play_arrow_rounded
+                                : Icons.pause_rounded)
                             : Icons.mic_rounded,
                         color: Colors.white,
                         size: 36,
@@ -666,7 +604,7 @@ class _RecordingScreenState extends State<RecordingScreen>
               ),
             )
           else
-            const SizedBox(width: 60),
+            const SizedBox(width: 62),
         ],
       ),
     );
@@ -681,22 +619,18 @@ class _RecordingScreenState extends State<RecordingScreen>
         ),
         title: Text(
           'Discard Recording?',
-          style: GoogleFonts.dmSans(
-            fontWeight: FontWeight.w600,
-          ),
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
         ),
         content: Text(
           'Are you sure you want to discard this recording? This action cannot be undone.',
-          style: GoogleFonts.dmSans(
-            color: AppTheme.mediumGray,
-          ),
+          style: GoogleFonts.poppins(color: AppTheme.mediumGray),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(
               'Cancel',
-              style: GoogleFonts.dmSans(
+              style: GoogleFonts.poppins(
                 color: AppTheme.mediumGray,
                 fontWeight: FontWeight.w600,
               ),
@@ -710,7 +644,7 @@ class _RecordingScreenState extends State<RecordingScreen>
             },
             child: Text(
               'Discard',
-              style: GoogleFonts.dmSans(
+              style: GoogleFonts.poppins(
                 color: AppTheme.accentCoral,
                 fontWeight: FontWeight.w600,
               ),
