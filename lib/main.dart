@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'theme/app_theme.dart';
 import 'screens/home_screen.dart';
+import 'screens/splash_screen.dart';
 import 'services/consultation_service.dart';
 import 'providers/consultation_provider.dart';
 
@@ -29,22 +30,23 @@ void main() async {
           create: (_) => ConsultationProvider(consultationService),
         ),
       ],
-      child: const MedicoTranscribeApp(),
+      child: const DoctorScribeApp(),
     ),
   );
 }
 
-class MedicoTranscribeApp extends StatefulWidget {
-  const MedicoTranscribeApp({super.key});
+class DoctorScribeApp extends StatefulWidget {
+  const DoctorScribeApp({super.key});
 
   @override
-  State<MedicoTranscribeApp> createState() => _MedicoTranscribeAppState();
+  State<DoctorScribeApp> createState() => _DoctorScribeAppState();
 }
 
-class _MedicoTranscribeAppState extends State<MedicoTranscribeApp> {
+class _DoctorScribeAppState extends State<DoctorScribeApp> {
   bool _isInitialized = false;
   String? _initError;
   bool _initStarted = false;
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
 
   @override
   void didChangeDependencies() {
@@ -76,12 +78,26 @@ class _MedicoTranscribeAppState extends State<MedicoTranscribeApp> {
     }
   }
 
+  void _onSplashComplete() {
+    _navigatorKey.currentState?.pushReplacement(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            const HomeScreen(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+        transitionDuration: const Duration(milliseconds: 600),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Doctor Scribe',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.theme,
+      navigatorKey: _navigatorKey,
       home: _buildHome(),
     );
   }
@@ -89,33 +105,106 @@ class _MedicoTranscribeAppState extends State<MedicoTranscribeApp> {
   Widget _buildHome() {
     if (_initError != null) {
       return Scaffold(
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
+        body: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                AppTheme.softSkyBg,
+                AppTheme.paleBlue.withOpacity(0.5),
+                Colors.white,
+              ],
+            ),
+          ),
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: AppTheme.accentCoral.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.error_outline,
+                      size: 64,
+                      color: AppTheme.accentCoral,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Initialization Error',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.darkSlate,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    _initError!,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: AppTheme.mediumGray,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  ElevatedButton(
+                    onPressed: () {
+                      setState(() {
+                        _initError = null;
+                        _initStarted = false;
+                      });
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primarySkyBlue,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 32,
+                        vertical: 16,
+                      ),
+                    ),
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (!_isInitialized) {
+      return Scaffold(
+        body: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                AppTheme.softSkyBg,
+                AppTheme.paleBlue.withOpacity(0.5),
+                Colors.white,
+              ],
+            ),
+          ),
+          child: Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    AppTheme.primarySkyBlue,
+                  ),
+                ),
                 const SizedBox(height: 16),
                 const Text(
-                  'Initialization Error',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  _initError!,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.grey),
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      _initError = null;
-                      _initStarted = false;
-                    });
-                  },
-                  child: const Text('Retry'),
+                  'Initializing...',
+                  style: TextStyle(color: AppTheme.mediumGray, fontSize: 16),
                 ),
               ],
             ),
@@ -124,21 +213,7 @@ class _MedicoTranscribeAppState extends State<MedicoTranscribeApp> {
       );
     }
 
-    if (!_isInitialized) {
-      return const Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
-              Text('Initializing...'),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return const HomeScreen();
+    // Show splash screen which will navigate to home screen
+    return SplashScreen(onComplete: _onSplashComplete);
   }
 }

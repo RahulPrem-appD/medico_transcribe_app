@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
+import '../widgets/elephant_logo.dart';
 import 'language_selection_screen.dart';
 import 'reports_history_screen.dart';
 
@@ -11,7 +12,8 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
+class _HomeScreenState extends State<HomeScreen>
+    with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
@@ -29,7 +31,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     _slideAnimation = Tween<Offset>(
       begin: const Offset(0, 0.3),
       end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic));
+    ).animate(
+        CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic));
     _animationController.forward();
   }
 
@@ -48,9 +51,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              AppTheme.warmCream,
-              AppTheme.softMint.withOpacity(0.5),
-              AppTheme.warmCream,
+              AppTheme.softSkyBg,
+              AppTheme.paleBlue.withOpacity(0.5),
+              Colors.white,
             ],
             stops: const [0.0, 0.5, 1.0],
           ),
@@ -61,7 +64,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 40),
+                const SizedBox(height: 24),
                 // Header with animated entrance
                 FadeTransition(
                   opacity: _fadeAnimation,
@@ -70,7 +73,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                     child: _buildHeader(),
                   ),
                 ),
-                const SizedBox(height: 60),
+                const SizedBox(height: 40),
                 // Main action cards
                 Expanded(
                   child: FadeTransition(
@@ -96,29 +99,48 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // App branding row
         Row(
           children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryTeal.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: const Icon(
-                Icons.medical_services_rounded,
-                color: AppTheme.primaryTeal,
-                size: 32,
+            const Hero(
+              tag: 'app_logo',
+              child: ElephantLogo(size: 56),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Doctor Scribe',
+                    style: GoogleFonts.raleway(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.darkSlate,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Medical Transcription',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.primarySkyBlue,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
               ),
             ),
-            const Spacer(),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: AppTheme.primarySkyBlue.withOpacity(0.1),
                     blurRadius: 10,
                     offset: const Offset(0, 2),
                   ),
@@ -137,8 +159,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   const SizedBox(width: 8),
                   Text(
                     'Online',
-                    style: GoogleFonts.dmSans(
-                      fontSize: 14,
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
                       fontWeight: FontWeight.w500,
                       color: AppTheme.mediumGray,
                     ),
@@ -149,10 +171,11 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           ],
         ),
         const SizedBox(height: 32),
+        // Welcome section
         Text(
           'Welcome,',
-          style: GoogleFonts.dmSans(
-            fontSize: 18,
+          style: GoogleFonts.poppins(
+            fontSize: 16,
             color: AppTheme.mediumGray,
             fontWeight: FontWeight.w500,
           ),
@@ -160,8 +183,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         const SizedBox(height: 4),
         Text(
           'Dr. Vyshali',
-          style: GoogleFonts.playfairDisplay(
-            fontSize: 36,
+          style: GoogleFonts.raleway(
+            fontSize: 32,
             fontWeight: FontWeight.w700,
             color: AppTheme.darkSlate,
           ),
@@ -169,8 +192,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         const SizedBox(height: 8),
         Text(
           'Ready to assist your patients today',
-          style: GoogleFonts.dmSans(
-            fontSize: 16,
+          style: GoogleFonts.poppins(
+            fontSize: 15,
             color: AppTheme.mediumGray,
           ),
         ),
@@ -190,7 +213,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [AppTheme.primaryTeal, AppTheme.deepTeal],
+              colors: [AppTheme.primarySkyBlue, AppTheme.deepSkyBlue],
             ),
             iconBackground: Colors.white.withOpacity(0.2),
             textColor: Colors.white,
@@ -200,7 +223,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 PageRouteBuilder(
                   pageBuilder: (context, animation, secondaryAnimation) =>
                       const LanguageSelectionScreen(),
-                  transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                  transitionsBuilder:
+                      (context, animation, secondaryAnimation, child) {
                     return FadeTransition(
                       opacity: animation,
                       child: SlideTransition(
@@ -233,16 +257,17 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               end: Alignment.bottomRight,
               colors: [Colors.white, Colors.grey.shade50],
             ),
-            iconBackground: AppTheme.softMint,
+            iconBackground: AppTheme.paleBlue,
             textColor: AppTheme.darkSlate,
-            borderColor: Colors.grey.shade200,
+            borderColor: AppTheme.lightSkyBlue.withOpacity(0.5),
             onTap: () {
               Navigator.push(
                 context,
                 PageRouteBuilder(
                   pageBuilder: (context, animation, secondaryAnimation) =>
                       const ReportsHistoryScreen(),
-                  transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                  transitionsBuilder:
+                      (context, animation, secondaryAnimation, child) {
                     return FadeTransition(
                       opacity: animation,
                       child: SlideTransition(
@@ -275,7 +300,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           width: 40,
           height: 4,
           decoration: BoxDecoration(
-            color: AppTheme.primaryTeal.withOpacity(0.3),
+            color: AppTheme.primarySkyBlue.withOpacity(0.4),
             borderRadius: BorderRadius.circular(2),
           ),
         ),
@@ -284,7 +309,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           width: 8,
           height: 4,
           decoration: BoxDecoration(
-            color: AppTheme.accentCoral.withOpacity(0.5),
+            color: AppTheme.deepSkyBlue.withOpacity(0.6),
             borderRadius: BorderRadius.circular(2),
           ),
         ),
@@ -293,7 +318,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           width: 8,
           height: 4,
           decoration: BoxDecoration(
-            color: AppTheme.primaryTeal.withOpacity(0.2),
+            color: AppTheme.primarySkyBlue.withOpacity(0.3),
             borderRadius: BorderRadius.circular(2),
           ),
         ),
@@ -347,13 +372,13 @@ class _ActionCardState extends State<_ActionCard> {
             gradient: widget.gradient,
             borderRadius: BorderRadius.circular(24),
             border: widget.borderColor != null
-                ? Border.all(color: widget.borderColor!, width: 1)
+                ? Border.all(color: widget.borderColor!, width: 1.5)
                 : null,
             boxShadow: [
               BoxShadow(
                 color: widget.borderColor != null
                     ? Colors.black.withOpacity(0.04)
-                    : AppTheme.primaryTeal.withOpacity(0.3),
+                    : AppTheme.primarySkyBlue.withOpacity(0.35),
                 blurRadius: 20,
                 offset: const Offset(0, 10),
               ),
@@ -370,7 +395,7 @@ class _ActionCardState extends State<_ActionCard> {
                 child: Icon(
                   widget.icon,
                   color: widget.borderColor != null
-                      ? AppTheme.primaryTeal
+                      ? AppTheme.primarySkyBlue
                       : Colors.white,
                   size: 26,
                 ),
@@ -383,16 +408,16 @@ class _ActionCardState extends State<_ActionCard> {
                   children: [
                     Text(
                       widget.title,
-                      style: GoogleFonts.dmSans(
+                      style: GoogleFonts.poppins(
                         fontSize: 18,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w600,
                         color: widget.textColor,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       widget.subtitle,
-                      style: GoogleFonts.dmSans(
+                      style: GoogleFonts.poppins(
                         fontSize: 13,
                         color: widget.textColor.withOpacity(0.7),
                       ),
@@ -404,14 +429,14 @@ class _ActionCardState extends State<_ActionCard> {
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: widget.borderColor != null
-                      ? AppTheme.primaryTeal.withOpacity(0.1)
+                      ? AppTheme.primarySkyBlue.withOpacity(0.1)
                       : Colors.white.withOpacity(0.2),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   Icons.arrow_forward_rounded,
                   color: widget.borderColor != null
-                      ? AppTheme.primaryTeal
+                      ? AppTheme.primarySkyBlue
                       : Colors.white,
                   size: 18,
                 ),
@@ -423,4 +448,3 @@ class _ActionCardState extends State<_ActionCard> {
     );
   }
 }
-
