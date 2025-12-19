@@ -85,71 +85,17 @@ class SarvamService {
         'Audio file size: $fileSize bytes, estimated duration: ${estimatedDuration.toStringAsFixed(1)}s',
       );
 
-      // Use batch API for longer audio (> 25 seconds)
-      // The real-time API has a 30 second limit, so we use batch for safety
-      if (estimatedDuration > 25) {
-        print('Using batch API for long audio (>${estimatedDuration.toStringAsFixed(1)}s)');
-        return await _transcribeBatch(audioFilePath, language);
-      } else {
-        print('Using real-time API for short audio');
-        return await _transcribeRealtime(audioFilePath, language);
-      }
+      // Always use batch API to get diarization (speaker identification)
+      // The real-time API doesn't support diarization
+      print('Using batch API for diarization support');
+      return await _transcribeWithDiarization(audioFilePath, language);
     } catch (e) {
       return TranscriptionResult.error('Transcription error: $e');
     }
   }
 
-  /// Real-time translate API for short audio
-  Future<TranscriptionResult> _transcribeRealtime(
-    String audioFilePath,
-    String language,
-  ) async {
-    try {
-      final languageCode = getLanguageCode(language);
-      final file = File(audioFilePath);
-      final bytes = await file.readAsBytes();
-
-      final request = http.MultipartRequest(
-        'POST',
-        Uri.parse('${AppConfig.sarvamApiUrl}/speech-to-text-translate'),
-      );
-
-      request.headers['api-subscription-key'] = AppConfig.sarvamApiKey;
-      request.fields['model'] = 'saaras:v2.5';
-      request.files.add(
-        http.MultipartFile.fromBytes('file', bytes, filename: 'audio.wav'),
-      );
-
-      final response = await request.send();
-      final responseBody = await response.stream.bytesToString();
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(responseBody);
-        final transcript = data['transcript'] ?? '';
-        final translation = data['translation'] ?? '';
-
-        return TranscriptionResult.success(
-          transcription:
-              '[Original Transcription]\n$transcript\n\n[English Translation]\n$translation',
-          originalTranscript: transcript,
-          englishTranslation: translation,
-          languageCode: languageCode,
-        );
-      } else {
-        // Check if duration limit error
-        if (responseBody.contains('30 seconds') ||
-            responseBody.contains('duration')) {
-          return await _transcribeBatch(audioFilePath, language);
-        }
-        return TranscriptionResult.error('Transcription failed: $responseBody');
-      }
-    } catch (e) {
-      return TranscriptionResult.error('Real-time transcription error: $e');
-    }
-  }
-
-  /// Batch translate API for longer audio with diarization
-  Future<TranscriptionResult> _transcribeBatch(
+  /// Batch translate API with diarization support
+  Future<TranscriptionResult> _transcribeWithDiarization(
     String audioFilePath,
     String language,
   ) async {
@@ -339,19 +285,63 @@ class SarvamService {
       String transcript = resultData['transcript'] ?? '';
       String translation = resultData['translation'] ?? '';
 
-      // Handle diarization results
-      final diarization = resultData['diarization'] as List?;
-      String speakersText = '';
-      if (diarization != null && diarization.isNotEmpty) {
-        speakersText = '\n\n[Speaker Diarization]\n';
-        for (final segment in diarization) {
-          final speaker = segment['speaker'] ?? 'Unknown';
-          final text = segment['text'] ?? segment['transcript'] ?? '';
-          final start = segment['start'] ?? 0;
-          final end = segment['end'] ?? 0;
-          speakersText +=
-              '[$speaker] (${start.toStringAsFixed(1)}s - ${end.toStringAsFixed(1)}s): $text\n';
+      // Handle diarization results - API may return different formats
+      print('Result data keys: ${resultData.keys}');
+      List<dynamic>? diarization;
+      
+      // Try to extract diarization data from various possible formats
+      final diarizedTranscript = resultData['diarized_transcript'];
+      print('diarized_transcript type: ${diarizedTranscript?.runtimeType}');
+      print('diarized_transcript value: $diarizedTranscript');
+      
+      if (diarizedTranscript != null) {
+        if (diarizedTranscript is List) {
+          // Direct list format
+          diarization = diarizedTranscript;
+        } else if (diarizedTranscript is Map) {
+          // Map format - look for entries/segments/speakers inside
+          if (diarizedTranscript['entries'] is List) {
+            diarization = diarizedTranscript['entries'] as List;
+          } else if (diarizedTranscript['segments'] is List) {
+            diarization = diarizedTranscript['segments'] as List;
+          } else if (diarizedTranscript['speakers'] is List) {
+            diarization = diarizedTranscript['speakers'] as List;
+          } else {
+            // Try to convert map entries to a list format
+            // The map might have speaker keys with their text
+            final entries = <Map<String, dynamic>>[];
+            diarizedTranscript.forEach((key, value) {
+              if (value is Map) {
+                entries.add({
+                  'speaker': key,
+                  'text': value['text'] ?? value['transcript'] ?? '',
+                  'start': value['start'] ?? 0,
+                  'end': value['end'] ?? 0,
+                });
+              } else if (value is String) {
+                entries.add({
+                  'speaker': key,
+                  'text': value,
+                });
+              }
+            });
+            if (entries.isNotEmpty) {
+              diarization = entries;
+            }
+          }
         }
+      }
+      
+      // Fallback to 'diarization' key if diarized_transcript didn't work
+      if (diarization == null && resultData['diarization'] is List) {
+        diarization = resultData['diarization'] as List;
+      }
+      
+      print('Parsed diarization: $diarization');
+      if (diarization != null && diarization.isNotEmpty) {
+        print('Diarization found with ${diarization.length} segments');
+      } else {
+        print('No diarization data found in API response');
       }
 
       // Alternative format handling
@@ -361,8 +351,20 @@ class SarvamService {
         translation = results.map((r) => r['translation'] ?? '').join(' ');
       }
 
-      final combinedText =
-          '[Original Transcription]\n$transcript\n\n[English Translation]\n$translation$speakersText';
+      // Build combined text - skip headers if we have diarization
+      String combinedText;
+      if (diarization != null && diarization.isNotEmpty) {
+        // Just use the transcript for diarization mode
+        // The UI will handle formatting with speaker names
+        combinedText = transcript;
+      } else {
+        // No diarization - show original format with headers
+        combinedText = transcript;
+        if (translation.isNotEmpty) {
+          combinedText += '\n\n[English Translation]\n$translation';
+        }
+      }
+      
       print(
         'Translation completed. Transcript: ${transcript.length} chars, Translation: ${translation.length} chars',
       );

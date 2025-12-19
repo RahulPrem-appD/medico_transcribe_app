@@ -5,7 +5,7 @@ import '../services/consultation_service.dart';
 /// Provider for managing consultation state
 class ConsultationProvider extends ChangeNotifier {
   final ConsultationService _service;
-  
+
   List<Consultation> _consultations = [];
   Consultation? _currentConsultation;
   bool _isLoading = false;
@@ -48,7 +48,93 @@ class ConsultationProvider extends ChangeNotifier {
     }
   }
 
-  /// Process a new consultation (transcribe + generate report)
+  /// Transcribe audio only (without report generation)
+  Future<TranscriptionResult> transcribeOnly({
+    required String audioFilePath,
+    required String language,
+    String? patientName,
+  }) async {
+    _isProcessing = true;
+    _error = null;
+    _processingStatus = ConsultationStatus.pending;
+    _processingMessage = 'Starting...';
+    notifyListeners();
+
+    try {
+      final savedPath = await _service.saveAudioFile(audioFilePath);
+
+      final result = await _service.transcribeOnly(
+        audioFilePath: savedPath,
+        language: language,
+        patientName: patientName,
+        onStatusChange: (status, message) {
+          _processingStatus = status;
+          _processingMessage = message;
+          notifyListeners();
+        },
+      );
+
+      return result;
+    } catch (e) {
+      _error = e.toString();
+      return TranscriptionResult.error(error: e.toString());
+    } finally {
+      _isProcessing = false;
+      _processingStatus = null;
+      _processingMessage = null;
+      notifyListeners();
+    }
+  }
+
+  /// Generate report from edited transcription
+  Future<ProcessingResult> generateReportFromTranscription({
+    required String consultationId,
+    required String transcription,
+    required String language,
+    String? patientName,
+  }) async {
+    _isProcessing = true;
+    _error = null;
+    _processingStatus = ConsultationStatus.generating_report;
+    _processingMessage = 'Generating medical report...';
+    notifyListeners();
+
+    try {
+      final result = await _service.generateReportFromTranscription(
+        consultationId: consultationId,
+        transcription: transcription,
+        language: language,
+        patientName: patientName,
+        onStatusChange: (status, message) {
+          _processingStatus = status;
+          _processingMessage = message;
+          notifyListeners();
+        },
+      );
+
+      if (result.success) {
+        _currentConsultation = result.consultation;
+        await loadConsultations();
+      } else {
+        _error = result.error;
+      }
+
+      return result;
+    } catch (e) {
+      _error = e.toString();
+      return ProcessingResult.error(
+        consultationId: consultationId,
+        error: e.toString(),
+      );
+    } finally {
+      _isProcessing = false;
+      _processingStatus = null;
+      _processingMessage = null;
+      notifyListeners();
+    }
+  }
+
+  /// Process a new consultation (transcribe + generate report) - legacy method
   Future<ProcessingResult> processConsultation({
     required String audioFilePath,
     required String language,
@@ -183,4 +269,3 @@ class ConsultationProvider extends ChangeNotifier {
     super.dispose();
   }
 }
-

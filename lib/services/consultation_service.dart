@@ -24,8 +24,167 @@ class ConsultationService {
     await _db.initialize();
   }
 
-  /// Process a new consultation
-  /// Returns the consultation ID for tracking
+  /// Transcribe audio only (without report generation)
+  Future<TranscriptionResult> transcribeOnly({
+    required String audioFilePath,
+    required String language,
+    String? patientName,
+    Function(ConsultationStatus status, String? message)? onStatusChange,
+  }) async {
+    Consultation? consultation;
+
+    try {
+      // Step 1: Create consultation record
+      onStatusChange?.call(
+        ConsultationStatus.pending,
+        'Creating consultation...',
+      );
+
+      consultation = await _db.createConsultation(
+        patientName: patientName,
+        language: language,
+        audioFilePath: audioFilePath,
+      );
+
+      print('Consultation created: ${consultation.id}');
+
+      // Step 2: Transcribe audio
+      onStatusChange?.call(
+        ConsultationStatus.transcribing,
+        'Transcribing audio...',
+      );
+      await _db.updateConsultationStatus(
+        consultation.id,
+        ConsultationStatus.transcribing,
+      );
+
+      final transcriptionResult = await _sarvam.transcribeAudio(
+        audioFilePath: audioFilePath,
+        language: language,
+      );
+
+      if (!transcriptionResult.success) {
+        await _db.updateConsultationStatus(
+          consultation.id,
+          ConsultationStatus.failed,
+          errorMessage: transcriptionResult.error,
+        );
+        return TranscriptionResult.error(
+          consultationId: consultation.id,
+          error: transcriptionResult.error ?? 'Transcription failed',
+        );
+      }
+
+      // Update transcription in database
+      await _db.updateConsultationTranscription(
+        consultation.id,
+        transcriptionResult.transcription!,
+      );
+
+      print(
+        'Transcription completed: ${transcriptionResult.transcription!.length} chars',
+      );
+
+      return TranscriptionResult.success(
+        consultationId: consultation.id,
+        transcription: transcriptionResult.transcription!,
+        diarization: transcriptionResult.diarization,
+      );
+    } catch (e) {
+      print('Transcription error: $e');
+
+      if (consultation != null) {
+        await _db.updateConsultationStatus(
+          consultation.id,
+          ConsultationStatus.failed,
+          errorMessage: e.toString(),
+        );
+      }
+
+      return TranscriptionResult.error(
+        consultationId: consultation?.id,
+        error: e.toString(),
+      );
+    }
+  }
+
+  /// Generate report from transcription (after user review/edit)
+  Future<ProcessingResult> generateReportFromTranscription({
+    required String consultationId,
+    required String transcription,
+    required String language,
+    String? patientName,
+    Function(ConsultationStatus status, String? message)? onStatusChange,
+  }) async {
+    try {
+      // Update transcription in database (in case user edited it)
+      await _db.updateConsultationTranscription(consultationId, transcription);
+
+      // Generate report
+      onStatusChange?.call(
+        ConsultationStatus.generating_report,
+        'Generating medical report...',
+      );
+      await _db.updateConsultationStatus(
+        consultationId,
+        ConsultationStatus.generating_report,
+      );
+
+      final reportResult = await _feather.generateReport(
+        transcription: transcription,
+        language: language,
+        patientName: patientName,
+      );
+
+      if (!reportResult.success) {
+        await _db.updateConsultationStatus(
+          consultationId,
+          ConsultationStatus.failed,
+          errorMessage: reportResult.error,
+        );
+        return ProcessingResult.error(
+          consultationId: consultationId,
+          error: reportResult.error ?? 'Report generation failed',
+        );
+      }
+
+      // Save report to database
+      await _db.createReport(
+        consultationId: consultationId,
+        chiefComplaint: reportResult.chiefComplaint!,
+        symptoms: reportResult.symptoms!,
+        diagnosis: reportResult.diagnosis!,
+        prescription: reportResult.prescription!,
+        additionalNotes: reportResult.additionalNotes!,
+      );
+
+      print('Report created successfully');
+      onStatusChange?.call(
+        ConsultationStatus.completed,
+        'Consultation completed!',
+      );
+
+      // Fetch complete consultation with report
+      final completedConsultation = await _db.getConsultation(consultationId);
+
+      return ProcessingResult.success(consultation: completedConsultation!);
+    } catch (e) {
+      print('Report generation error: $e');
+
+      await _db.updateConsultationStatus(
+        consultationId,
+        ConsultationStatus.failed,
+        errorMessage: e.toString(),
+      );
+
+      return ProcessingResult.error(
+        consultationId: consultationId,
+        error: e.toString(),
+      );
+    }
+  }
+
+  /// Process a new consultation (legacy - transcribe + generate report in one go)
   Future<ProcessingResult> processConsultation({
     required String audioFilePath,
     required String language,
@@ -290,6 +449,47 @@ class ProcessingResult {
     required String error,
   }) {
     return ProcessingResult._(
+      success: false,
+      consultationId: consultationId,
+      error: error,
+    );
+  }
+}
+
+/// Result of transcription only
+class TranscriptionResult {
+  final bool success;
+  final String? consultationId;
+  final String? transcription;
+  final List<dynamic>? diarization;
+  final String? error;
+
+  TranscriptionResult._({
+    required this.success,
+    this.consultationId,
+    this.transcription,
+    this.diarization,
+    this.error,
+  });
+
+  factory TranscriptionResult.success({
+    required String consultationId,
+    required String transcription,
+    List<dynamic>? diarization,
+  }) {
+    return TranscriptionResult._(
+      success: true,
+      consultationId: consultationId,
+      transcription: transcription,
+      diarization: diarization,
+    );
+  }
+
+  factory TranscriptionResult.error({
+    String? consultationId,
+    required String error,
+  }) {
+    return TranscriptionResult._(
       success: false,
       consultationId: consultationId,
       error: error,
