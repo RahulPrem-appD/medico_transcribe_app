@@ -29,11 +29,13 @@ class _HomeScreenState extends State<HomeScreen>
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
     );
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
-      end: Offset.zero,
-    ).animate(
-        CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic));
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _animationController,
+            curve: Curves.easeOutCubic,
+          ),
+        );
     _animationController.forward();
   }
 
@@ -103,10 +105,7 @@ class _HomeScreenState extends State<HomeScreen>
         // App branding row
         Row(
           children: [
-            const Hero(
-              tag: 'app_logo',
-              child: ElephantLogo(size: 56),
-            ),
+            const Hero(tag: 'app_logo', child: ElephantLogo(size: 56)),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
@@ -193,10 +192,7 @@ class _HomeScreenState extends State<HomeScreen>
         const SizedBox(height: 8),
         Text(
           'Ready to assist your patients today',
-          style: GoogleFonts.poppins(
-            fontSize: 15,
-            color: AppTheme.mediumGray,
-          ),
+          style: GoogleFonts.poppins(fontSize: 15, color: AppTheme.mediumGray),
         ),
       ],
     );
@@ -227,20 +223,23 @@ class _HomeScreenState extends State<HomeScreen>
                       const LanguageSelectionScreen(),
                   transitionsBuilder:
                       (context, animation, secondaryAnimation, child) {
-                    return FadeTransition(
-                      opacity: animation,
-                      child: SlideTransition(
-                        position: Tween<Offset>(
-                          begin: const Offset(0.1, 0),
-                          end: Offset.zero,
-                        ).animate(CurvedAnimation(
-                          parent: animation,
-                          curve: Curves.easeOutCubic,
-                        )),
-                        child: child,
-                      ),
-                    );
-                  },
+                        return FadeTransition(
+                          opacity: animation,
+                          child: SlideTransition(
+                            position:
+                                Tween<Offset>(
+                                  begin: const Offset(0.1, 0),
+                                  end: Offset.zero,
+                                ).animate(
+                                  CurvedAnimation(
+                                    parent: animation,
+                                    curve: Curves.easeOutCubic,
+                                  ),
+                                ),
+                            child: child,
+                          ),
+                        );
+                      },
                   transitionDuration: const Duration(milliseconds: 400),
                 ),
               );
@@ -267,11 +266,11 @@ class _HomeScreenState extends State<HomeScreen>
                             const ReportsHistoryScreen(),
                         transitionsBuilder:
                             (context, animation, secondaryAnimation, child) {
-                          return FadeTransition(
-                            opacity: animation,
-                            child: child,
-                          );
-                        },
+                              return FadeTransition(
+                                opacity: animation,
+                                child: child,
+                              );
+                            },
                         transitionDuration: const Duration(milliseconds: 300),
                       ),
                     );
@@ -293,11 +292,11 @@ class _HomeScreenState extends State<HomeScreen>
                             const TemplateManagerScreen(),
                         transitionsBuilder:
                             (context, animation, secondaryAnimation, child) {
-                          return FadeTransition(
-                            opacity: animation,
-                            child: child,
-                          );
-                        },
+                              return FadeTransition(
+                                opacity: animation,
+                                child: child,
+                              );
+                            },
                         transitionDuration: const Duration(milliseconds: 300),
                       ),
                     );
@@ -525,11 +524,7 @@ class _SmallActionCardState extends State<_SmallActionCard> {
                   color: widget.color.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: Icon(
-                  widget.icon,
-                  color: widget.color,
-                  size: 24,
-                ),
+                child: Icon(widget.icon, color: widget.color, size: 24),
               ),
               const SizedBox(height: 10),
               Text(

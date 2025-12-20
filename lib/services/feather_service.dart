@@ -10,6 +10,21 @@ class FeatherService {
   factory FeatherService() => _instance;
   FeatherService._internal();
 
+  /// Standard patient details that should always be extracted
+  static const String _patientDetailsInstruction = '''
+IMPORTANT - ALWAYS EXTRACT PATIENT DETAILS:
+Before the medical content, always try to extract these patient details from the conversation if mentioned:
+- "patient_name": Patient's full name if mentioned
+- "age": Patient's age (just the number, e.g., "45" or "45 years")
+- "gender": Patient's gender (Male/Female/Other)
+- "blood_group": Blood group if mentioned (e.g., "A+", "O-", "B+")
+- "weight": Weight in kg if mentioned (just the number)
+- "height": Height in cm if mentioned (just the number)
+- "phone": Contact number if mentioned
+
+If any of these are not mentioned in the conversation, simply omit that field from the response.
+''';
+
   /// Generate system prompt based on template configuration
   String _buildSystemPrompt(ReportTemplateConfig? templateConfig) {
     if (templateConfig == null || templateConfig.sections.isEmpty) {
@@ -18,14 +33,19 @@ class FeatherService {
 
 Your task is to analyze the transcription and extract structured medical information in a professional clinical format.
 
+$_patientDetailsInstruction
+
 CRITICAL RESPONSE FORMAT:
-- Respond with a valid JSON object with these exact keys
+- Respond with a valid JSON object
 - Each value MUST be a simple STRING (not nested objects or arrays)
 - Use plain text with line breaks for lists, NOT JSON arrays
 - For multiple items, use bullet points like "• Item 1\\n• Item 2"
 
-Respond with this exact JSON structure:
+Respond with this JSON structure (include patient details if found, plus these medical sections):
 {
+    "patient_name": "Name if mentioned",
+    "age": "Age if mentioned",
+    "gender": "Gender if mentioned",
     "chief_complaint": "Primary reason for the visit in 1-2 sentences",
     "symptoms": "• Symptom 1 with details\\n• Symptom 2 with details",
     "diagnosis": "Clinical assessment/diagnosis based on the presented symptoms",
@@ -84,8 +104,12 @@ Clinical Guidelines:
 
 Your task is to analyze the transcription and extract structured medical information based on the requested sections.
 
+$_patientDetailsInstruction
+
 CRITICAL RESPONSE FORMAT:
-- Respond with a valid JSON object with EXACTLY these keys: $jsonExample
+- Respond with a valid JSON object
+- Include patient details (patient_name, age, gender, blood_group, weight, height, phone) if mentioned in conversation
+- Also include these medical sections: $jsonExample
 - Each value MUST be a simple STRING (not nested objects or arrays)
 - Use plain text with line breaks for lists, NOT JSON arrays
 - For multiple items, use bullet points like "• Item 1\\n• Item 2"
@@ -96,6 +120,9 @@ LANGUAGE TONE: $toneInstructions
 
 EXAMPLE OUTPUT FORMAT:
 {
+  "patient_name": "John Smith",
+  "age": "45",
+  "gender": "Male",
   "chief_complaint": "Patient presents with headache and fever for 3 days",
   "symptoms": "• Headache - throbbing, frontal\\n• Fever - 101°F\\n• Fatigue",
   "diagnosis": "Viral upper respiratory infection",
@@ -110,7 +137,7 @@ Clinical Guidelines:
 - Format prescriptions clearly when applicable: Drug name, strength, route, frequency, duration
 - Note any allergies or contraindications mentioned
 - Include vital signs if mentioned in the conversation
-- ONLY include the requested sections, nothing more''';
+- Include patient details AND the requested medical sections''';
   }
 
   /// Convert section name to a valid JSON key

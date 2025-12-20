@@ -27,6 +27,15 @@ class _ResultsScreenState extends State<ResultsScreen> {
   Map<String, String> _editedSections = {};
   bool _hasUnsavedChanges = false;
 
+  // Patient details - standard fields always shown
+  late TextEditingController _patientNameController;
+  late TextEditingController _ageController;
+  late TextEditingController _genderController;
+  late TextEditingController _bloodGroupController;
+  late TextEditingController _weightController;
+  late TextEditingController _heightController;
+  late TextEditingController _phoneController;
+
   // Color palette for sections
   final List<Color> _sectionColors = [
     AppTheme.accentCoral,
@@ -102,6 +111,42 @@ class _ResultsScreenState extends State<ResultsScreen> {
     if (_consultation.report != null) {
       _editedSections = Map.from(_consultation.report!.sections);
     }
+    
+    // Initialize patient detail controllers
+    // Try to extract from report sections or use defaults
+    _patientNameController = TextEditingController(
+      text: _consultation.patientName ?? _editedSections['patient_name'] ?? '',
+    );
+    _ageController = TextEditingController(
+      text: _editedSections['age'] ?? _editedSections['patient_age'] ?? '',
+    );
+    _genderController = TextEditingController(
+      text: _editedSections['gender'] ?? _editedSections['sex'] ?? '',
+    );
+    _bloodGroupController = TextEditingController(
+      text: _editedSections['blood_group'] ?? _editedSections['blood_type'] ?? '',
+    );
+    _weightController = TextEditingController(
+      text: _editedSections['weight'] ?? '',
+    );
+    _heightController = TextEditingController(
+      text: _editedSections['height'] ?? '',
+    );
+    _phoneController = TextEditingController(
+      text: _editedSections['phone'] ?? _editedSections['contact'] ?? '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _patientNameController.dispose();
+    _ageController.dispose();
+    _genderController.dispose();
+    _bloodGroupController.dispose();
+    _weightController.dispose();
+    _heightController.dispose();
+    _phoneController.dispose();
+    super.dispose();
   }
 
   Color _getSectionColor(int index) {
@@ -191,17 +236,11 @@ class _ResultsScreenState extends State<ResultsScreen> {
                 // Success header
                 _buildSuccessHeader(),
                 const SizedBox(height: 24),
-                // Patient info card
-                _buildInfoCard(
-                  'Patient Information',
-                  Icons.person_rounded,
-                  [
-                    _InfoRow('Name', _consultation.patientName ?? 'Not provided'),
-                    _InfoRow('Language', _consultation.language),
-                    _InfoRow('Duration', _consultation.formattedDuration),
-                    _InfoRow('Date', _formatDate(_consultation.createdAt)),
-                  ],
-                ),
+                // Editable patient details card
+                _buildPatientDetailsCard(),
+                const SizedBox(height: 16),
+                // Consultation info card (non-editable)
+                _buildConsultationInfoCard(),
                 const SizedBox(height: 16),
                 // Transcription (collapsible)
                 if (_consultation.transcription != null)
@@ -402,74 +441,232 @@ class _ResultsScreenState extends State<ResultsScreen> {
     );
   }
 
-  Widget _buildInfoCard(String title, IconData icon, List<_InfoRow> rows) {
+  /// Editable patient details card - always shown
+  Widget _buildPatientDetailsCard() {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.primarySkyBlue.withOpacity(0.2)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.04),
-            blurRadius: 15,
-            offset: const Offset(0, 4),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: AppTheme.primarySkyBlue.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon, color: AppTheme.primarySkyBlue, size: 22),
-              ),
-              const SizedBox(width: 12),
+              Icon(Icons.person_rounded, color: AppTheme.primarySkyBlue, size: 20),
+              const SizedBox(width: 10),
               Text(
-                title,
+                'Patient Details',
                 style: GoogleFonts.poppins(
-                  fontSize: 16,
+                  fontSize: 15,
                   fontWeight: FontWeight.w600,
                   color: AppTheme.darkSlate,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppTheme.successGreen.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  'Editable',
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: AppTheme.successGreen,
+                  ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 16),
-          ...rows.map((row) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(
-                      width: 80,
-                      child: Text(
-                        row.label,
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          color: AppTheme.mediumGray,
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: Text(
-                        row.value,
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.darkSlate,
-                        ),
-                      ),
-                    ),
-                  ],
+          // Patient details grid
+          Row(
+            children: [
+              Expanded(
+                flex: 2,
+                child: _buildPatientField(
+                  'Name',
+                  _patientNameController,
+                  Icons.badge_outlined,
                 ),
-              )),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildPatientField(
+                  'Age',
+                  _ageController,
+                  Icons.cake_outlined,
+                  keyboardType: TextInputType.number,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildPatientField(
+                  'Gender',
+                  _genderController,
+                  Icons.wc_outlined,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildPatientField(
+                  'Blood Group',
+                  _bloodGroupController,
+                  Icons.bloodtype_outlined,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildPatientField(
+                  'Weight (kg)',
+                  _weightController,
+                  Icons.monitor_weight_outlined,
+                  keyboardType: TextInputType.number,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildPatientField(
+                  'Height (cm)',
+                  _heightController,
+                  Icons.height_outlined,
+                  keyboardType: TextInputType.number,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _buildPatientField(
+            'Phone',
+            _phoneController,
+            Icons.phone_outlined,
+            keyboardType: TextInputType.phone,
+          ),
         ],
+      ),
+    );
+  }
+
+  /// Build individual patient detail field
+  Widget _buildPatientField(
+    String label,
+    TextEditingController controller,
+    IconData icon, {
+    TextInputType keyboardType = TextInputType.text,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 12,
+            color: AppTheme.mediumGray,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Container(
+          decoration: BoxDecoration(
+            color: AppTheme.lightGray.withOpacity(0.5),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: TextField(
+            controller: controller,
+            keyboardType: keyboardType,
+            onChanged: (_) {
+              if (!_hasUnsavedChanges) {
+                setState(() => _hasUnsavedChanges = true);
+              }
+            },
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              color: AppTheme.darkSlate,
+            ),
+            decoration: InputDecoration(
+              prefixIcon: Icon(icon, size: 18, color: AppTheme.mediumGray),
+              hintText: 'Enter $label',
+              hintStyle: GoogleFonts.poppins(
+                fontSize: 13,
+                color: AppTheme.mediumGray.withOpacity(0.5),
+              ),
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              isDense: true,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Consultation info card (non-editable metadata)
+  Widget _buildConsultationInfoCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.lightGray.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          _buildInfoChip(Icons.language_rounded, _consultation.language),
+          const SizedBox(width: 12),
+          _buildInfoChip(Icons.timer_outlined, _consultation.formattedDuration),
+          const SizedBox(width: 12),
+          _buildInfoChip(Icons.calendar_today_outlined, _formatDate(_consultation.createdAt)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoChip(IconData icon, String text) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 14, color: AppTheme.mediumGray),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                text,
+                style: GoogleFonts.poppins(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: AppTheme.darkSlate,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1511,11 +1708,35 @@ class _ResultsScreenState extends State<ResultsScreen> {
           ),
         );
 
+        // Add patient details to sections
+        final sectionsToSave = Map<String, String>.from(_editedSections);
+        if (_patientNameController.text.isNotEmpty) {
+          sectionsToSave['patient_name'] = _patientNameController.text;
+        }
+        if (_ageController.text.isNotEmpty) {
+          sectionsToSave['age'] = _ageController.text;
+        }
+        if (_genderController.text.isNotEmpty) {
+          sectionsToSave['gender'] = _genderController.text;
+        }
+        if (_bloodGroupController.text.isNotEmpty) {
+          sectionsToSave['blood_group'] = _bloodGroupController.text;
+        }
+        if (_weightController.text.isNotEmpty) {
+          sectionsToSave['weight'] = _weightController.text;
+        }
+        if (_heightController.text.isNotEmpty) {
+          sectionsToSave['height'] = _heightController.text;
+        }
+        if (_phoneController.text.isNotEmpty) {
+          sectionsToSave['phone'] = _phoneController.text;
+        }
+
         // Update the report in the database
         final dbService = DatabaseService();
         await dbService.updateReportSections(
           reportId: _consultation.report!.id,
-          sections: _editedSections,
+          sections: sectionsToSave,
         );
 
         // Close loading dialog
@@ -1603,12 +1824,6 @@ class _ResultsScreenState extends State<ResultsScreen> {
     return '${date.day} ${months[date.month - 1]} ${date.year}, ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
   }
 
-}
-
-class _InfoRow {
-  final String label;
-  final String value;
-  _InfoRow(this.label, this.value);
 }
 
 /// List Edit Dialog for editing list-type content
