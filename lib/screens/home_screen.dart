@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 import '../widgets/elephant_logo.dart';
+import '../services/database_service.dart';
 import 'language_selection_screen.dart';
 import 'reports_history_screen.dart';
 import 'template_manager_screen.dart';
@@ -22,6 +23,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   late Animation<double> _scaleAnimation;
   late Animation<double> _pulseAnimation;
   late Animation<double> _floatAnimation;
+
+  final DatabaseService _db = DatabaseService();
+
+  // Stats counters
+  int _todayCount = 0;
+  int _weekCount = 0;
+  int _totalCount = 0;
 
   @override
   void initState() {
@@ -66,6 +74,35 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
 
     _mainController.forward();
+
+    // Load stats
+    _loadStats();
+  }
+
+  Future<void> _loadStats() async {
+    try {
+      final consultations = await _db.getConsultations();
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final weekAgo = today.subtract(const Duration(days: 7));
+
+      setState(() {
+        _totalCount = consultations.length;
+        _todayCount = consultations.where((c) {
+          final date = DateTime(
+            c.createdAt.year,
+            c.createdAt.month,
+            c.createdAt.day,
+          );
+          return date == today;
+        }).length;
+        _weekCount = consultations.where((c) {
+          return c.createdAt.isAfter(weekAgo);
+        }).length;
+      });
+    } catch (e) {
+      print('Error loading stats: $e');
+    }
   }
 
   @override
@@ -558,11 +595,23 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildStatItem('Today', '0', Icons.calendar_today_rounded),
+          _buildStatItem(
+            'Today',
+            _todayCount.toString(),
+            Icons.calendar_today_rounded,
+          ),
           _buildStatDivider(),
-          _buildStatItem('This Week', '0', Icons.date_range_rounded),
+          _buildStatItem(
+            'This Week',
+            _weekCount.toString(),
+            Icons.date_range_rounded,
+          ),
           _buildStatDivider(),
-          _buildStatItem('Total', '0', Icons.bar_chart_rounded),
+          _buildStatItem(
+            'Total',
+            _totalCount.toString(),
+            Icons.bar_chart_rounded,
+          ),
         ],
       ),
     );
