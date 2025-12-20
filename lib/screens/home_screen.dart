@@ -5,6 +5,7 @@ import '../widgets/elephant_logo.dart';
 import 'language_selection_screen.dart';
 import 'reports_history_screen.dart';
 import 'template_manager_screen.dart';
+import 'notes_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -120,50 +121,53 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildFloatingOrbs(Size size) {
-    return AnimatedBuilder(
-      animation: _floatAnimation,
-      builder: (context, child) {
-        return Stack(
-          children: [
-            // Top right orb
-            Positioned(
-              top: -60 + _floatAnimation.value,
-              right: -40,
-              child: Container(
-                width: 200,
-                height: 200,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      AppTheme.primarySkyBlue.withOpacity(0.15),
-                      AppTheme.primarySkyBlue.withOpacity(0.0),
-                    ],
+    return IgnorePointer(
+      // IMPORTANT: Prevents orbs from blocking touch events
+      child: AnimatedBuilder(
+        animation: _floatAnimation,
+        builder: (context, child) {
+          return Stack(
+            children: [
+              // Top right orb
+              Positioned(
+                top: -60 + _floatAnimation.value,
+                right: -40,
+                child: Container(
+                  width: 200,
+                  height: 200,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        AppTheme.primarySkyBlue.withOpacity(0.15),
+                        AppTheme.primarySkyBlue.withOpacity(0.0),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-            // Bottom left orb
-            Positioned(
-              bottom: 100 - _floatAnimation.value,
-              left: -80,
-              child: Container(
-                width: 250,
-                height: 250,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      AppTheme.deepSkyBlue.withOpacity(0.1),
-                      AppTheme.deepSkyBlue.withOpacity(0.0),
-                    ],
+              // Bottom left orb
+              Positioned(
+                bottom: 100 - _floatAnimation.value,
+                left: -80,
+                child: Container(
+                  width: 250,
+                  height: 250,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        AppTheme.deepSkyBlue.withOpacity(0.1),
+                        AppTheme.deepSkyBlue.withOpacity(0.0),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
-        );
-      },
+            ],
+          );
+        },
+      ),
     );
   }
 
@@ -480,65 +484,60 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildQuickActions() {
-    return Row(
-      children: [
-        Expanded(
-          child: _QuickActionTile(
-            icon: Icons.folder_copy_rounded,
-            label: 'Reports',
-            sublabel: 'View history',
-            color: const Color(0xFF10B981),
-            onTap: () {
-              Navigator.push(
-                context,
-                PageRouteBuilder(
-                  pageBuilder: (context, animation, secondaryAnimation) =>
-                      const ReportsHistoryScreen(),
-                  transitionsBuilder:
-                      (context, animation, secondaryAnimation, child) {
-                        return FadeTransition(opacity: animation, child: child);
-                      },
-                  transitionDuration: const Duration(milliseconds: 250),
-                ),
-              );
-            },
+    return SizedBox(
+      height: 130, // Fixed height to ensure buttons are visible and fit content
+      child: Row(
+        children: [
+          Expanded(
+            child: _QuickActionTile(
+              icon: Icons.folder_copy_rounded,
+              label: 'Reports',
+              sublabel: 'View history',
+              color: const Color(0xFF10B981),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ReportsHistoryScreen(),
+                  ),
+                );
+              },
+            ),
           ),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: _QuickActionTile(
-            icon: Icons.article_rounded,
-            label: 'Templates',
-            sublabel: 'Customize',
-            color: const Color(0xFFF59E0B),
-            onTap: () {
-              Navigator.push(
-                context,
-                PageRouteBuilder(
-                  pageBuilder: (context, animation, secondaryAnimation) =>
-                      const TemplateManagerScreen(),
-                  transitionsBuilder:
-                      (context, animation, secondaryAnimation, child) {
-                        return FadeTransition(opacity: animation, child: child);
-                      },
-                  transitionDuration: const Duration(milliseconds: 250),
-                ),
-              );
-            },
+          const SizedBox(width: 14),
+          Expanded(
+            child: _QuickActionTile(
+              icon: Icons.article_rounded,
+              label: 'Templates',
+              sublabel: 'Customize',
+              color: const Color(0xFFF59E0B),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const TemplateManagerScreen(),
+                  ),
+                );
+              },
+            ),
           ),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: _QuickActionTile(
-            icon: Icons.insights_rounded,
-            label: 'Analytics',
-            sublabel: 'Coming soon',
-            color: const Color(0xFF8B5CF6),
-            isDisabled: true,
-            onTap: () {},
+          const SizedBox(width: 14),
+          Expanded(
+            child: _QuickActionTile(
+              icon: Icons.sticky_note_2_rounded,
+              label: 'Notes',
+              sublabel: 'Quick notes',
+              color: const Color(0xFF8B5CF6),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const NotesScreen()),
+                );
+              },
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -637,7 +636,8 @@ class _QuickActionTileState extends State<_QuickActionTile> {
         ? AppTheme.mediumGray.withOpacity(0.5)
         : widget.color;
 
-    return GestureDetector(
+    return InkWell(
+      onTap: widget.isDisabled ? null : widget.onTap,
       onTapDown: widget.isDisabled
           ? null
           : (_) => setState(() => _isPressed = true),
@@ -647,7 +647,7 @@ class _QuickActionTileState extends State<_QuickActionTile> {
       onTapCancel: widget.isDisabled
           ? null
           : () => setState(() => _isPressed = false),
-      onTap: widget.isDisabled ? null : widget.onTap,
+      borderRadius: BorderRadius.circular(18),
       child: AnimatedScale(
         scale: _isPressed ? 0.95 : 1.0,
         duration: const Duration(milliseconds: 100),
@@ -672,6 +672,7 @@ class _QuickActionTileState extends State<_QuickActionTile> {
               ],
             ),
             child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
@@ -682,7 +683,7 @@ class _QuickActionTileState extends State<_QuickActionTile> {
                   ),
                   child: Icon(widget.icon, color: effectiveColor, size: 22),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
                 Text(
                   widget.label,
                   style: GoogleFonts.poppins(
@@ -691,7 +692,7 @@ class _QuickActionTileState extends State<_QuickActionTile> {
                     color: AppTheme.darkSlate,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 1),
                 Text(
                   widget.sublabel,
                   style: GoogleFonts.poppins(

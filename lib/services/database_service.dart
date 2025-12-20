@@ -3,6 +3,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/consultation.dart';
 import '../models/report.dart';
+import '../models/note.dart';
 import 'package:uuid/uuid.dart';
 
 const _uuid = Uuid();
@@ -27,7 +28,7 @@ class DatabaseService {
 
       _database = await openDatabase(
         path,
-        version: 2, // Increment version for migration
+        version: 3, // Increment version for notes table
         onCreate: _createTables,
         onUpgrade: _onUpgrade,
       );
@@ -76,6 +77,20 @@ class DatabaseService {
       )
     ''');
 
+    // Create notes table for quick notes
+    await db.execute('''
+      CREATE TABLE notes (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        content TEXT,
+        patient_name TEXT,
+        color TEXT,
+        is_pinned INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    ''');
+
     print('Database tables created');
   }
 
@@ -89,6 +104,26 @@ class DatabaseService {
       } catch (e) {
         // Column might already exist
         print('Migration note: $e');
+      }
+    }
+    if (oldVersion < 3) {
+      // Create notes table
+      try {
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS notes (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            content TEXT,
+            patient_name TEXT,
+            color TEXT,
+            is_pinned INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+          )
+        ''');
+        print('Created notes table');
+      } catch (e) {
+        print('Migration note (notes table): $e');
       }
     }
   }
@@ -496,6 +531,161 @@ class DatabaseService {
 
     return patients;
   }
+
+  // ==================== NOTES METHODS ====================
+
+  /// Create a new note
+  Future<Note> createNote({
+    required String title,
+    required String content,
+    String? patientName,
+    String? color,
+  }) async {
+    await _ensureConnection();
+
+    final id = _uuid.v4();
+    final now = DateTime.now().toIso8601String();
+
+    await _database!.insert('notes', {
+      'id': id,
+      'title': title,
+      'content': content,
+      'patient_name': patientName,
+      'color': color,
+      'is_pinned': 0,
+      'created_at': now,
+      'updated_at': now,
+    });
+
+    final result = await _database!.query(
+      'notes',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+
+    return Note.fromRow(_convertRow(result.first));
+  }
+
+  /// Update an existing note
+  Future<Note> updateNote({
+    required String id,
+    String? title,
+    String? content,
+    String? patientName,
+    String? color,
+    bool? isPinned,
+  }) async {
+    await _ensureConnection();
+
+    final now = DateTime.now().toIso8601String();
+    final updates = <String, dynamic>{
+      'updated_at': now,
+    };
+
+    if (title != null) updates['title'] = title;
+    if (content != null) updates['content'] = content;
+    if (patientName != null) updates['patient_name'] = patientName;
+    if (color != null) updates['color'] = color;
+    if (isPinned != null) updates['is_pinned'] = isPinned ? 1 : 0;
+
+    await _database!.update(
+      'notes',
+      updates,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+
+    final result = await _database!.query(
+      'notes',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+
+    return Note.fromRow(_convertRow(result.first));
+  }
+
+  /// Toggle note pinned status
+  Future<Note> toggleNotePin(String id) async {
+    await _ensureConnection();
+
+    // Get current pin status
+    final result = await _database!.query(
+      'notes',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+
+    if (result.isEmpty) throw Exception('Note not found');
+
+    final currentPinned = (result.first['is_pinned'] as int?) == 1;
+    
+    return updateNote(id: id, isPinned: !currentPinned);
+  }
+
+  /// Get all notes
+  Future<List<Note>> getNotes({
+    String? searchQuery,
+    bool pinnedFirst = true,
+  }) async {
+    await _ensureConnection();
+
+    String orderBy = pinnedFirst 
+        ? 'is_pinned DESC, updated_at DESC' 
+        : 'updated_at DESC';
+
+    List<Map<String, dynamic>> result;
+
+    if (searchQuery != null && searchQuery.isNotEmpty) {
+      result = await _database!.query(
+        'notes',
+        where: 'title LIKE ? OR content LIKE ? OR patient_name LIKE ?',
+        whereArgs: ['%$searchQuery%', '%$searchQuery%', '%$searchQuery%'],
+        orderBy: orderBy,
+      );
+    } else {
+      result = await _database!.query(
+        'notes',
+        orderBy: orderBy,
+      );
+    }
+
+    return result.map((row) => Note.fromRow(_convertRow(row))).toList();
+  }
+
+  /// Get a single note by ID
+  Future<Note?> getNote(String id) async {
+    await _ensureConnection();
+
+    final result = await _database!.query(
+      'notes',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+
+    if (result.isEmpty) return null;
+    return Note.fromRow(_convertRow(result.first));
+  }
+
+  /// Delete a note
+  Future<void> deleteNote(String id) async {
+    await _ensureConnection();
+
+    await _database!.delete(
+      'notes',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  /// Get notes count
+  Future<int> getNotesCount() async {
+    await _ensureConnection();
+
+    final result = await _database!.rawQuery('SELECT COUNT(*) as count FROM notes');
+    return result.first['count'] as int;
+  }
+
+  // ==================== END NOTES METHODS ====================
 
   /// Ensure database connection is active
   Future<void> _ensureConnection() async {
