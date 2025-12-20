@@ -1,7 +1,14 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
 import '../theme/app_theme.dart';
 import '../models/consultation.dart';
 import '../models/report.dart';
@@ -210,12 +217,21 @@ class _ReportDetailScreenState extends State<ReportDetailScreen>
               _consultation.transcription!,
               AppTheme.mediumGray,
             ),
-          // Dynamic report sections
+          // Dynamic report sections (excluding patient details which are shown in header)
           if (report != null && report.sections.isNotEmpty) ...[
-            ...report.sectionKeys.asMap().entries.map((entry) {
+            ...report.sectionKeys
+                .where((key) => !_excludedSectionKeys.contains(key.toLowerCase()))
+                .toList()
+                .asMap()
+                .entries
+                .map((entry) {
               final index = entry.key;
               final key = entry.value;
               final content = report.sections[key] ?? '';
+              
+              // Skip empty content
+              if (content.trim().isEmpty) return const SizedBox.shrink();
+              
               final displayName = Report.keyToDisplayName(key);
               final color = _getSectionColor(index);
               final icon = _getSectionIcon(key);
@@ -235,47 +251,47 @@ class _ReportDetailScreenState extends State<ReportDetailScreen>
             // Fallback to legacy fields if sections is empty
             const SizedBox(height: 16),
             if (report.chiefComplaint.isNotEmpty)
-              _buildSectionCard(
-                'Chief Complaint',
-                Icons.report_problem_rounded,
-                report.chiefComplaint,
-                AppTheme.accentCoral,
-              ),
+            _buildSectionCard(
+              'Chief Complaint',
+              Icons.report_problem_rounded,
+              report.chiefComplaint,
+              AppTheme.accentCoral,
+            ),
             if (report.symptoms.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              _buildSectionCard(
-                'Symptoms',
-                Icons.medical_information_rounded,
-                report.symptoms,
-                AppTheme.warningAmber,
-              ),
+            const SizedBox(height: 16),
+            _buildSectionCard(
+              'Symptoms',
+              Icons.medical_information_rounded,
+              report.symptoms,
+              AppTheme.warningAmber,
+            ),
             ],
             if (report.diagnosis.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              _buildSectionCard(
-                'Diagnosis',
-                Icons.health_and_safety_rounded,
-                report.diagnosis,
-                AppTheme.primaryTeal,
-              ),
+            const SizedBox(height: 16),
+            _buildSectionCard(
+              'Diagnosis',
+              Icons.health_and_safety_rounded,
+              report.diagnosis,
+              AppTheme.primaryTeal,
+            ),
             ],
             if (report.prescription.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              _buildSectionCard(
-                'Prescription',
-                Icons.medication_rounded,
-                report.prescription,
-                AppTheme.successGreen,
-              ),
+            const SizedBox(height: 16),
+            _buildSectionCard(
+              'Prescription',
+              Icons.medication_rounded,
+              report.prescription,
+              AppTheme.successGreen,
+            ),
             ],
             if (report.additionalNotes.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              _buildSectionCard(
-                'Additional Notes',
-                Icons.note_alt_rounded,
-                report.additionalNotes,
-                AppTheme.deepTeal,
-              ),
+            const SizedBox(height: 16),
+            _buildSectionCard(
+              'Additional Notes',
+              Icons.note_alt_rounded,
+              report.additionalNotes,
+              AppTheme.deepTeal,
+            ),
             ],
           ] else
             _buildNoReportCard(),
@@ -469,19 +485,55 @@ class _ReportDetailScreenState extends State<ReportDetailScreen>
     return lines.join('\n');
   }
 
+  // Get patient name from report sections or consultation
+  String get _patientName {
+    final sections = _consultation.report?.sections ?? {};
+    final nameFromSections = sections['patient_name']?.toString().trim() ?? '';
+    if (nameFromSections.isNotEmpty) return nameFromSections;
+    return _consultation.patientName ?? 'Unknown Patient';
+  }
+
+  // Get patient details from report sections
+  Map<String, String> get _patientDetails {
+    final sections = _consultation.report?.sections ?? {};
+    return {
+      'age': sections['age']?.toString().trim() ?? '',
+      'gender': sections['gender']?.toString().trim() ?? '',
+      'blood_group': sections['blood_group']?.toString().trim() ?? '',
+      'phone': sections['phone']?.toString().trim() ?? '',
+      'weight': sections['weight']?.toString().trim() ?? '',
+      'height': sections['height']?.toString().trim() ?? '',
+    };
+  }
+
+  // Keys to exclude from report sections (patient details shown in header)
+  static const _excludedSectionKeys = {
+    'patient_name',
+    'age',
+    'gender',
+    'blood_group',
+    'phone',
+    'weight',
+    'height',
+    'patient_id',
+  };
+
   Widget _buildPatientHeader() {
+    final details = _patientDetails;
+    final hasDetails = details.values.any((v) => v.isNotEmpty);
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [AppTheme.primaryTeal, AppTheme.deepTeal],
+          colors: [AppTheme.primarySkyBlue, AppTheme.deepSkyBlue],
         ),
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.primaryTeal.withOpacity(0.3),
+            color: AppTheme.primarySkyBlue.withOpacity(0.3),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -501,8 +553,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen>
                 ),
                 child: Center(
                   child: Text(
-                    (_consultation.patientName ?? 'P')[0].toUpperCase(),
-                    style: GoogleFonts.dmSans(
+                    _patientName[0].toUpperCase(),
+                    style: GoogleFonts.poppins(
                       fontSize: 28,
                       fontWeight: FontWeight.w700,
                       color: Colors.white,
@@ -516,13 +568,28 @@ class _ReportDetailScreenState extends State<ReportDetailScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _consultation.patientName ?? 'Unknown Patient',
-                      style: GoogleFonts.dmSans(
-                        fontSize: 22,
+                      _patientName,
+                      style: GoogleFonts.poppins(
+                        fontSize: 20,
                         fontWeight: FontWeight.w700,
                         color: Colors.white,
                       ),
                     ),
+                    if (hasDetails) ...[
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: [
+                          if (details['age']!.isNotEmpty || details['gender']!.isNotEmpty)
+                            _buildHeaderTag(
+                              '${details['age']!.isNotEmpty ? "${details['age']}y" : ""}${details['age']!.isNotEmpty && details['gender']!.isNotEmpty ? ", " : ""}${details['gender']!}',
+                            ),
+                          if (details['blood_group']!.isNotEmpty)
+                            _buildHeaderTag(details['blood_group']!),
+                        ],
+                      ),
+                    ] else ...[
                     const SizedBox(height: 4),
                     Container(
                       padding: const EdgeInsets.symmetric(
@@ -535,13 +602,14 @@ class _ReportDetailScreenState extends State<ReportDetailScreen>
                       ),
                       child: Text(
                         _consultation.statusDisplayText,
-                        style: GoogleFonts.dmSans(
+                          style: GoogleFonts.poppins(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                           color: Colors.white.withOpacity(0.9),
                         ),
                       ),
                     ),
+                    ],
                   ],
                 ),
               ),
@@ -598,7 +666,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen>
         const SizedBox(height: 6),
         Text(
           label,
-          style: GoogleFonts.dmSans(
+          style: GoogleFonts.poppins(
             fontSize: 11,
             color: Colors.white.withOpacity(0.7),
           ),
@@ -606,13 +674,32 @@ class _ReportDetailScreenState extends State<ReportDetailScreen>
         const SizedBox(height: 2),
         Text(
           value,
-          style: GoogleFonts.dmSans(
+          style: GoogleFonts.poppins(
             fontSize: 13,
             fontWeight: FontWeight.w600,
             color: Colors.white,
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildHeaderTag(String text) {
+    if (text.isEmpty) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        text,
+        style: GoogleFonts.poppins(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          color: Colors.white,
+        ),
+      ),
     );
   }
 
@@ -809,32 +896,19 @@ class _ReportDetailScreenState extends State<ReportDetailScreen>
           children: [
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Print feature coming soon!',
-                        style: GoogleFonts.dmSans(),
-                      ),
-                      backgroundColor: AppTheme.primaryTeal,
-                      behavior: SnackBarBehavior.floating,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.print_rounded, size: 20),
+                onPressed: _exportAsPdf,
+                icon: const Icon(Icons.picture_as_pdf_rounded, size: 20),
                 label: Text(
-                  'Print',
-                  style: GoogleFonts.dmSans(
+                  'Export PDF',
+                  style: GoogleFonts.poppins(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  side: const BorderSide(color: AppTheme.primaryTeal, width: 2),
+                  foregroundColor: AppTheme.primarySkyBlue,
+                  side: const BorderSide(color: AppTheme.primarySkyBlue, width: 2),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
@@ -844,32 +918,19 @@ class _ReportDetailScreenState extends State<ReportDetailScreen>
             const SizedBox(width: 12),
             Expanded(
               child: ElevatedButton.icon(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Share feature coming soon!',
-                        style: GoogleFonts.dmSans(),
-                      ),
-                      backgroundColor: AppTheme.primaryTeal,
-                      behavior: SnackBarBehavior.floating,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  );
-                },
+                onPressed: _shareReport,
                 icon: const Icon(Icons.share_rounded, size: 20),
                 label: Text(
                   'Share',
-                  style: GoogleFonts.dmSans(
+                  style: GoogleFonts.poppins(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  backgroundColor: AppTheme.primaryTeal,
+                  backgroundColor: AppTheme.primarySkyBlue,
+                  foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
@@ -905,18 +966,19 @@ class _ReportDetailScreenState extends State<ReportDetailScreen>
             ),
             const SizedBox(height: 24),
             _buildOptionItem(
-              Icons.refresh_rounded,
-              'Regenerate Report',
-              'Generate a new AI report',
-              AppTheme.primaryTeal,
-              onTap: _regenerateReport,
-            ),
-            const SizedBox(height: 12),
-            _buildOptionItem(
-              Icons.download_rounded,
+              Icons.picture_as_pdf_rounded,
               'Export as PDF',
               'Download the report as PDF',
               AppTheme.successGreen,
+              onTap: () => _exportAsPdf(fromBottomSheet: true),
+            ),
+            const SizedBox(height: 12),
+            _buildOptionItem(
+              Icons.share_rounded,
+              'Share Report',
+              'Share the report with others',
+              AppTheme.primarySkyBlue,
+              onTap: () => _shareReport(fromBottomSheet: true),
             ),
             const SizedBox(height: 12),
             _buildOptionItem(
@@ -933,60 +995,384 @@ class _ReportDetailScreenState extends State<ReportDetailScreen>
     );
   }
 
-  Future<void> _regenerateReport() async {
-    Navigator.pop(context); // Close bottom sheet
+  /// Generate PDF document
+  Future<Uint8List> _generatePdf() async {
+    debugPrint('Starting PDF generation...');
+    final pdf = pw.Document();
+    final report = _consultation.report;
     
-    final provider = Provider.of<ConsultationProvider>(context, listen: false);
+    // Get patient details
+    final sections = report?.sections ?? {};
+    final patientName = sections['patient_name']?.toString().trim() ?? 
+                        _consultation.patientName ?? 'Unknown Patient';
+    final age = sections['age']?.toString().trim() ?? '';
+    final gender = sections['gender']?.toString().trim() ?? '';
+    final bloodGroup = sections['blood_group']?.toString().trim() ?? '';
+    final phone = sections['phone']?.toString().trim() ?? '';
+
+    debugPrint('Building PDF page for: $patientName');
     
-    // Show loading
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(
-        child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation(AppTheme.primaryTeal),
-        ),
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(40),
+        header: (context) => _buildPdfHeader(patientName, age, gender, bloodGroup, phone),
+        footer: (context) => _buildPdfFooter(context),
+        build: (context) => _buildPdfContent(report, sections),
       ),
     );
 
-    final result = await provider.regenerateReport(_consultation.id);
-    
-    if (mounted) {
-      Navigator.pop(context); // Close loading dialog
-      
-      if (result.success && result.consultation != null) {
-        setState(() {
-          _consultation = result.consultation!;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Report regenerated successfully!',
-              style: GoogleFonts.dmSans(),
+    debugPrint('Saving PDF...');
+    final result = pdf.save();
+    debugPrint('PDF generation complete');
+    return result;
+  }
+
+  pw.Widget _buildPdfHeader(String name, String age, String gender, String bloodGroup, String phone) {
+    return pw.Container(
+      padding: const pw.EdgeInsets.only(bottom: 20),
+      decoration: const pw.BoxDecoration(
+        border: pw.Border(bottom: pw.BorderSide(color: PdfColors.grey300, width: 1)),
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text(
+                'MEDICAL REPORT',
+                style: pw.TextStyle(
+                  fontSize: 24,
+                  fontWeight: pw.FontWeight.bold,
+                  color: PdfColors.blue800,
+                ),
+              ),
+              pw.Text(
+                'Doctor Scribe',
+                style: pw.TextStyle(
+                  fontSize: 14,
+                  fontWeight: pw.FontWeight.bold,
+                  color: PdfColors.grey600,
+                ),
+              ),
+            ],
+          ),
+          pw.SizedBox(height: 20),
+          pw.Container(
+            padding: const pw.EdgeInsets.all(15),
+            decoration: pw.BoxDecoration(
+              color: PdfColors.blue50,
+              borderRadius: pw.BorderRadius.circular(8),
             ),
-            backgroundColor: AppTheme.successGreen,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+            child: pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Expanded(
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text(
+                        'Patient Information',
+                        style: pw.TextStyle(
+                          fontSize: 12,
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.blue800,
+                        ),
+                      ),
+                      pw.SizedBox(height: 8),
+                      pw.Text('Name: $name', style: const pw.TextStyle(fontSize: 11)),
+                      if (age.isNotEmpty || gender.isNotEmpty)
+                        pw.Text(
+                          '${age.isNotEmpty ? "Age: $age" : ""}${age.isNotEmpty && gender.isNotEmpty ? "  |  " : ""}${gender.isNotEmpty ? "Gender: $gender" : ""}',
+                          style: const pw.TextStyle(fontSize: 11),
+                        ),
+                      if (bloodGroup.isNotEmpty)
+                        pw.Text('Blood Group: $bloodGroup', style: const pw.TextStyle(fontSize: 11)),
+                      if (phone.isNotEmpty)
+                        pw.Text('Phone: $phone', style: const pw.TextStyle(fontSize: 11)),
+                    ],
+                  ),
+                ),
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.end,
+                  children: [
+                    pw.Text(
+                      'Consultation Details',
+                      style: pw.TextStyle(
+                        fontSize: 12,
+                        fontWeight: pw.FontWeight.bold,
+                        color: PdfColors.blue800,
+                      ),
+                    ),
+                    pw.SizedBox(height: 8),
+                    pw.Text('Date: ${_formatDate(_consultation.createdAt)}', style: const pw.TextStyle(fontSize: 11)),
+                    pw.Text('Language: ${_consultation.language}', style: const pw.TextStyle(fontSize: 11)),
+                    pw.Text('Duration: ${_consultation.formattedDuration}', style: const pw.TextStyle(fontSize: 11)),
+                  ],
+                ),
+              ],
             ),
           ),
-        );
-      } else {
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _buildPdfFooter(pw.Context context) {
+    return pw.Container(
+      padding: const pw.EdgeInsets.only(top: 10),
+      decoration: const pw.BoxDecoration(
+        border: pw.Border(top: pw.BorderSide(color: PdfColors.grey300, width: 1)),
+      ),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        children: [
+          pw.Text(
+            'Generated by Doctor Scribe',
+            style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey500),
+          ),
+          pw.Text(
+            'Page ${context.pageNumber} of ${context.pagesCount}',
+            style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey500),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<pw.Widget> _buildPdfContent(Report? report, Map<String, String> sections) {
+    final List<pw.Widget> widgets = [];
+    
+    if (report == null) {
+      widgets.add(
+        pw.Center(
+          child: pw.Text('No report data available'),
+        ),
+      );
+      return widgets;
+    }
+
+    // Filter out patient details from sections
+    final excludedKeys = {'patient_name', 'age', 'gender', 'blood_group', 'phone', 'weight', 'height', 'patient_id'};
+    
+    // Add each section
+    for (final key in report.sectionKeys) {
+      if (excludedKeys.contains(key.toLowerCase())) continue;
+      
+      final content = sections[key] ?? '';
+      if (content.trim().isEmpty) continue;
+      
+      final displayName = Report.keyToDisplayName(key);
+      widgets.add(_buildPdfSection(displayName, content));
+      widgets.add(pw.SizedBox(height: 15));
+    }
+
+    // Fallback to legacy fields if sections is empty
+    if (widgets.isEmpty) {
+      if (report.chiefComplaint.isNotEmpty) {
+        widgets.add(_buildPdfSection('Chief Complaint', report.chiefComplaint));
+        widgets.add(pw.SizedBox(height: 15));
+      }
+      if (report.symptoms.isNotEmpty) {
+        widgets.add(_buildPdfSection('Symptoms', report.symptoms));
+        widgets.add(pw.SizedBox(height: 15));
+      }
+      if (report.diagnosis.isNotEmpty) {
+        widgets.add(_buildPdfSection('Diagnosis', report.diagnosis));
+        widgets.add(pw.SizedBox(height: 15));
+      }
+      if (report.prescription.isNotEmpty) {
+        widgets.add(_buildPdfSection('Prescription', report.prescription));
+        widgets.add(pw.SizedBox(height: 15));
+      }
+      if (report.additionalNotes.isNotEmpty) {
+        widgets.add(_buildPdfSection('Additional Notes', report.additionalNotes));
+        widgets.add(pw.SizedBox(height: 15));
+      }
+    }
+
+    return widgets;
+  }
+
+  pw.Widget _buildPdfSection(String title, String content) {
+    // Clean content
+    String cleanContent = content
+        .replaceAll('\\n', '\n')
+        .replaceAll('\\"', '"')
+        .replaceAll('\\\\', '\\')
+        .replaceAll('**', '')
+        .replaceAll('###', '')
+        .replaceAll('##', '')
+        .replaceAll('#', '')
+        .replaceAll('```', '')
+        .trim();
+
+    // Try to parse JSON
+    if (cleanContent.startsWith('{') || cleanContent.startsWith('[')) {
+      try {
+        final parsed = jsonDecode(cleanContent);
+        cleanContent = _jsonToPlainText(parsed);
+      } catch (e) {
+        // Not valid JSON
+      }
+    }
+
+    // Split into lines for bullet formatting
+    final lines = cleanContent.split('\n').where((l) => l.trim().isNotEmpty).toList();
+
+    return pw.Container(
+      width: double.infinity,
+      padding: const pw.EdgeInsets.all(15),
+      decoration: pw.BoxDecoration(
+        color: PdfColors.grey50,
+        borderRadius: pw.BorderRadius.circular(8),
+        border: pw.Border.all(color: PdfColors.grey200),
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Text(
+            title,
+            style: pw.TextStyle(
+              fontSize: 14,
+              fontWeight: pw.FontWeight.bold,
+              color: PdfColors.blue800,
+            ),
+          ),
+          pw.SizedBox(height: 10),
+          ...lines.map((line) {
+            line = line.trim();
+            // Remove bullet prefix
+            if (line.startsWith('•') || line.startsWith('-') || line.startsWith('*')) {
+              line = line.substring(1).trim();
+            } else if (RegExp(r'^\d+\.\s*').hasMatch(line)) {
+              line = line.replaceFirst(RegExp(r'^\d+\.\s*'), '');
+            }
+            
+            return pw.Padding(
+              padding: const pw.EdgeInsets.only(bottom: 4),
+              child: pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Container(
+                    width: 4,
+                    height: 4,
+                    margin: const pw.EdgeInsets.only(top: 5, right: 8),
+                    decoration: const pw.BoxDecoration(
+                      color: PdfColors.blue600,
+                      shape: pw.BoxShape.circle,
+                    ),
+                  ),
+                  pw.Expanded(
+                    child: pw.Text(
+                      line,
+                      style: const pw.TextStyle(fontSize: 11),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  /// Export report as PDF
+  Future<void> _exportAsPdf({bool fromBottomSheet = false}) async {
+    debugPrint('_exportAsPdf called, fromBottomSheet: $fromBottomSheet');
+    
+    // Close bottom sheet if called from there
+    if (fromBottomSheet && mounted) {
+      Navigator.pop(context);
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
+    
+    if (!mounted) {
+      debugPrint('Widget not mounted, returning');
+      return;
+    }
+
+    try {
+      debugPrint('Generating PDF...');
+      // Generate PDF
+      final pdfData = await _generatePdf();
+      
+      debugPrint('PDF generated, size: ${pdfData.length} bytes');
+      
+      if (!mounted) {
+        debugPrint('Widget not mounted after PDF generation');
+        return;
+      }
+      
+      debugPrint('Opening print dialog...');
+      // Show print/share dialog
+      await Printing.layoutPdf(
+        onLayout: (format) async => pdfData,
+        name: 'Report_${_patientName.replaceAll(' ', '_')}_${_formatDateForFile(_consultation.createdAt)}.pdf',
+      );
+      debugPrint('Print dialog closed');
+    } catch (e, stackTrace) {
+      debugPrint('PDF Export Error: $e');
+      debugPrint('Stack trace: $stackTrace');
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              result.error ?? 'Failed to regenerate report',
-              style: GoogleFonts.dmSans(),
-            ),
+            content: Text('Failed to generate PDF: $e', style: GoogleFonts.poppins()),
             backgroundColor: AppTheme.accentCoral,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         );
       }
     }
+  }
+
+  /// Share report
+  Future<void> _shareReport({bool fromBottomSheet = false}) async {
+    // Close bottom sheet if called from there
+    if (fromBottomSheet && mounted) {
+      Navigator.pop(context);
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
+    
+    if (!mounted) return;
+
+    try {
+      final pdfData = await _generatePdf();
+      
+      // Save to temp file
+      final tempDir = await getTemporaryDirectory();
+      final fileName = 'Report_${_patientName.replaceAll(' ', '_')}_${_formatDateForFile(_consultation.createdAt)}.pdf';
+      final file = File('${tempDir.path}/$fileName');
+      await file.writeAsBytes(pdfData);
+      
+      if (!mounted) return;
+      
+      // Share the file
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        subject: 'Medical Report - $_patientName',
+        text: 'Medical consultation report for $_patientName dated ${_formatDate(_consultation.createdAt)}',
+      );
+    } catch (e) {
+      debugPrint('Share Error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to share: $e', style: GoogleFonts.poppins()),
+            backgroundColor: AppTheme.accentCoral,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      }
+    }
+  }
+
+  String _formatDateForFile(DateTime date) {
+    return '${date.year}${date.month.toString().padLeft(2, '0')}${date.day.toString().padLeft(2, '0')}';
   }
 
   Future<void> _deleteReport() async {

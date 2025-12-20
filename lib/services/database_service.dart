@@ -345,6 +345,158 @@ class DatabaseService {
     );
   }
 
+  /// Search for existing patients by various criteria
+  /// Returns unique patients based on their name, extracting details from reports
+  Future<List<Map<String, String>>> searchPatients({
+    required String query,
+    required String searchType, // 'name', 'id', 'phone'
+  }) async {
+    await _ensureConnection();
+
+    final List<Map<String, String>> patients = [];
+    final Set<String> seenPatients = {}; // To avoid duplicates
+
+    // Get all consultations with their reports
+    final consultationsResult = await _database!.query(
+      'consultations',
+      orderBy: 'created_at DESC',
+    );
+
+    for (final row in consultationsResult) {
+      final consultationId = row['id'] as String;
+      final patientName = row['patient_name'] as String? ?? '';
+
+      // Get associated report
+      final reportResult = await _database!.query(
+        'reports',
+        where: 'consultation_id = ?',
+        whereArgs: [consultationId],
+      );
+
+      if (reportResult.isEmpty) continue;
+
+      // Parse sections from report
+      final sectionsJson = reportResult.first['sections'] as String?;
+      Map<String, dynamic> sections = {};
+      if (sectionsJson != null && sectionsJson.isNotEmpty) {
+        try {
+          sections = jsonDecode(sectionsJson) as Map<String, dynamic>;
+        } catch (_) {}
+      }
+
+      // Extract patient details
+      final name = sections['patient_name']?.toString() ?? patientName;
+      final age = sections['age']?.toString() ?? '';
+      final gender = sections['gender']?.toString() ?? '';
+      final bloodGroup = sections['blood_group']?.toString() ?? '';
+      final phone = sections['phone']?.toString() ?? '';
+      final weight = sections['weight']?.toString() ?? '';
+      final height = sections['height']?.toString() ?? '';
+
+      // Skip if no name
+      if (name.isEmpty) continue;
+
+      // Create a unique key for this patient
+      final patientKey = '${name.toLowerCase()}_${phone}_${age}';
+      if (seenPatients.contains(patientKey)) continue;
+
+      // Check if matches search criteria
+      bool matches = false;
+      final queryLower = query.toLowerCase();
+
+      switch (searchType) {
+        case 'name':
+          matches = name.toLowerCase().contains(queryLower);
+          break;
+        case 'id':
+          matches = consultationId.toLowerCase().contains(queryLower);
+          break;
+        case 'phone':
+          matches = phone.contains(query);
+          break;
+      }
+
+      if (matches) {
+        seenPatients.add(patientKey);
+        patients.add({
+          'id': consultationId, // Use consultation ID as patient reference
+          'name': name,
+          'age': age,
+          'gender': gender,
+          'blood_group': bloodGroup,
+          'phone': phone,
+          'weight': weight,
+          'height': height,
+        });
+      }
+    }
+
+    return patients;
+  }
+
+  /// Get all unique patients (for listing)
+  Future<List<Map<String, String>>> getAllPatients() async {
+    await _ensureConnection();
+
+    final List<Map<String, String>> patients = [];
+    final Set<String> seenPatients = {}; // To avoid duplicates
+
+    // Get all consultations with their reports
+    final consultationsResult = await _database!.query(
+      'consultations',
+      orderBy: 'created_at DESC',
+    );
+
+    for (final row in consultationsResult) {
+      final consultationId = row['id'] as String;
+      final patientName = row['patient_name'] as String? ?? '';
+
+      // Get associated report
+      final reportResult = await _database!.query(
+        'reports',
+        where: 'consultation_id = ?',
+        whereArgs: [consultationId],
+      );
+
+      if (reportResult.isEmpty) continue;
+
+      // Parse sections from report
+      final sectionsJson = reportResult.first['sections'] as String?;
+      Map<String, dynamic> sections = {};
+      if (sectionsJson != null && sectionsJson.isNotEmpty) {
+        try {
+          sections = jsonDecode(sectionsJson) as Map<String, dynamic>;
+        } catch (_) {}
+      }
+
+      // Extract patient details
+      final name = sections['patient_name']?.toString() ?? patientName;
+      final age = sections['age']?.toString() ?? '';
+      final gender = sections['gender']?.toString() ?? '';
+      final bloodGroup = sections['blood_group']?.toString() ?? '';
+      final phone = sections['phone']?.toString() ?? '';
+
+      // Skip if no name
+      if (name.isEmpty) continue;
+
+      // Create a unique key for this patient
+      final patientKey = '${name.toLowerCase()}_${phone}_${age}';
+      if (seenPatients.contains(patientKey)) continue;
+
+      seenPatients.add(patientKey);
+      patients.add({
+        'id': consultationId,
+        'name': name,
+        'age': age,
+        'gender': gender,
+        'blood_group': bloodGroup,
+        'phone': phone,
+      });
+    }
+
+    return patients;
+  }
+
   /// Ensure database connection is active
   Future<void> _ensureConnection() async {
     if (_database == null || !_isInitialized) {

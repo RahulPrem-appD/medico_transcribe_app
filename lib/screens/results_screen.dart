@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
@@ -101,6 +102,24 @@ class _ResultsScreenState extends State<ResultsScreen> {
     'provisional_diagnosis': Icons.pending_actions_rounded,
     'specific_questions': Icons.help_outline_rounded,
     'specific_questions_for_specialist': Icons.help_outline_rounded,
+  };
+
+  // Patient detail keys to exclude from dynamic sections (shown in patient details card)
+  final Set<String> _patientDetailKeys = {
+    'patient_name',
+    'name',
+    'age',
+    'patient_age',
+    'gender',
+    'sex',
+    'blood_group',
+    'blood_type',
+    'weight',
+    'height',
+    'phone',
+    'phone_number',
+    'contact',
+    'patient_id',
   };
 
   @override
@@ -251,9 +270,11 @@ class _ResultsScreenState extends State<ResultsScreen> {
                     AppTheme.mediumGray,
                   ),
                 const SizedBox(height: 16),
-                // Dynamic report sections
+                // Dynamic report sections (excluding patient details already shown above)
                 if (report != null) ...[
-                  ...report.sectionKeys.asMap().entries.map((entry) {
+                  ...report.sectionKeys.asMap().entries
+                      .where((entry) => !_patientDetailKeys.contains(entry.value))
+                      .map((entry) {
                     final index = entry.key;
                     final key = entry.value;
                     // Use edited content if available, otherwise original
@@ -1674,146 +1695,370 @@ class _ResultsScreenState extends State<ResultsScreen> {
   }
 
   Future<void> _saveAndClose() async {
-    // Save edited sections if there are changes
-    if (_hasUnsavedChanges && _consultation.report != null) {
-      try {
-        // Show loading indicator
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => Center(
-            child: Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
+    // Show patient type selection dialog
+    _showPatientTypeDialog();
+  }
+
+  /// Show dialog to choose new patient or existing patient
+  void _showPatientTypeDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppTheme.primarySkyBlue.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.person_add_rounded,
+                  color: AppTheme.primarySkyBlue,
+                  size: 32,
+                ),
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const CircularProgressIndicator(
-                    color: AppTheme.primarySkyBlue,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Saving changes...',
+              const SizedBox(height: 20),
+              Text(
+                'Save Report',
+                style: GoogleFonts.poppins(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.darkSlate,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Is this a new patient or an existing patient?',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: AppTheme.mediumGray,
+                ),
+              ),
+              const SizedBox(height: 24),
+              // New Patient Button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _handleNewPatientSave();
+                  },
+                  icon: const Icon(Icons.person_add_outlined, color: Colors.white),
+                  label: Text(
+                    'New Patient',
                     style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      color: AppTheme.darkSlate,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
                     ),
                   ),
-                ],
-              ),
-            ),
-          ),
-        );
-
-        // Add patient details to sections
-        final sectionsToSave = Map<String, String>.from(_editedSections);
-        if (_patientNameController.text.isNotEmpty) {
-          sectionsToSave['patient_name'] = _patientNameController.text;
-        }
-        if (_ageController.text.isNotEmpty) {
-          sectionsToSave['age'] = _ageController.text;
-        }
-        if (_genderController.text.isNotEmpty) {
-          sectionsToSave['gender'] = _genderController.text;
-        }
-        if (_bloodGroupController.text.isNotEmpty) {
-          sectionsToSave['blood_group'] = _bloodGroupController.text;
-        }
-        if (_weightController.text.isNotEmpty) {
-          sectionsToSave['weight'] = _weightController.text;
-        }
-        if (_heightController.text.isNotEmpty) {
-          sectionsToSave['height'] = _heightController.text;
-        }
-        if (_phoneController.text.isNotEmpty) {
-          sectionsToSave['phone'] = _phoneController.text;
-        }
-
-        // Update the report in the database
-        final dbService = DatabaseService();
-        await dbService.updateReportSections(
-          reportId: _consultation.report!.id,
-          sections: sectionsToSave,
-        );
-
-        // Close loading dialog
-        if (mounted) Navigator.pop(context);
-
-        // Show success message
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Row(
-                children: [
-                  const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Report saved successfully!',
-                    style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
-                  ),
-                ],
-              ),
-              backgroundColor: AppTheme.successGreen,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              margin: const EdgeInsets.all(16),
-            ),
-          );
-        }
-      } catch (e) {
-        // Close loading dialog
-        if (mounted) Navigator.pop(context);
-
-        // Show error message
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Row(
-                children: [
-                  const Icon(Icons.error_rounded, color: Colors.white, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Failed to save: $e',
-                      style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primarySkyBlue,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
                     ),
                   ),
-                ],
+                ),
               ),
-              backgroundColor: AppTheme.accentCoral,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+              const SizedBox(height: 12),
+              // Existing Patient Button
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _handleExistingPatientSave();
+                  },
+                  icon: const Icon(Icons.person_search_outlined),
+                  label: Text(
+                    'Existing Patient',
+                    style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.primarySkyBlue,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    side: const BorderSide(color: AppTheme.primarySkyBlue),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
               ),
-              margin: const EdgeInsets.all(16),
-            ),
-          );
-        }
-        return;
-      }
-    } else {
-      // No changes, just show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Report saved successfully!',
-            style: GoogleFonts.poppins(),
-          ),
-          backgroundColor: AppTheme.successGreen,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+              const SizedBox(height: 12),
+              // Cancel Button
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(
+                  'Cancel',
+                  style: GoogleFonts.poppins(
+                    color: AppTheme.mediumGray,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-      );
+      ),
+    );
+  }
+
+  /// Validate required fields for new patient
+  String? _validateNewPatientFields() {
+    if (_patientNameController.text.trim().isEmpty) {
+      return 'name';
+    }
+    if (_ageController.text.trim().isEmpty) {
+      return 'age';
+    }
+    if (_genderController.text.trim().isEmpty) {
+      return 'gender';
+    }
+    return null; // All required fields are filled
+  }
+
+  /// Focus on the missing field
+  void _focusField(String fieldName) {
+    // Show error message
+    String message = '';
+    switch (fieldName) {
+      case 'name':
+        message = 'Please enter patient name';
+        break;
+      case 'age':
+        message = 'Please enter patient age';
+        break;
+      case 'gender':
+        message = 'Please enter patient gender';
+        break;
     }
     
-    _navigateHome();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.warning_rounded, color: Colors.white, size: 20),
+            const SizedBox(width: 8),
+            Text(message, style: GoogleFonts.poppins(fontWeight: FontWeight.w500)),
+          ],
+        ),
+        backgroundColor: AppTheme.warningAmber,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+      ),
+    );
+  }
+
+  /// Handle save for new patient
+  Future<void> _handleNewPatientSave() async {
+    // Validate required fields
+    final missingField = _validateNewPatientFields();
+    if (missingField != null) {
+      _focusField(missingField);
+      return;
+    }
+
+    // Show loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Center(
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(color: AppTheme.primarySkyBlue),
+              const SizedBox(height: 16),
+              Text(
+                'Saving report...',
+                style: GoogleFonts.poppins(fontSize: 14, color: AppTheme.darkSlate),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    try {
+      // Generate patient ID
+      final patientId = 'P${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}';
+      final reportId = _consultation.report?.id ?? 'R${DateTime.now().millisecondsSinceEpoch}';
+
+      // Prepare sections to save
+      final sectionsToSave = Map<String, String>.from(_editedSections);
+      sectionsToSave['patient_id'] = patientId;
+      sectionsToSave['patient_name'] = _patientNameController.text.trim();
+      sectionsToSave['age'] = _ageController.text.trim();
+      sectionsToSave['gender'] = _genderController.text.trim();
+      if (_bloodGroupController.text.isNotEmpty) {
+        sectionsToSave['blood_group'] = _bloodGroupController.text.trim();
+      }
+      if (_weightController.text.isNotEmpty) {
+        sectionsToSave['weight'] = _weightController.text.trim();
+      }
+      if (_heightController.text.isNotEmpty) {
+        sectionsToSave['height'] = _heightController.text.trim();
+      }
+      if (_phoneController.text.isNotEmpty) {
+        sectionsToSave['phone'] = _phoneController.text.trim();
+      }
+
+      // Save to database
+      final dbService = DatabaseService();
+      await dbService.updateReportSections(
+        reportId: reportId,
+        sections: sectionsToSave,
+      );
+
+      // Close loading dialog
+      if (mounted) Navigator.pop(context);
+
+      // Navigate to success screen
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => _ReportSavedScreen(
+              patientId: patientId,
+              reportId: reportId,
+              patientName: _patientNameController.text.trim(),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      // Close loading dialog
+      if (mounted) Navigator.pop(context);
+
+      // Show error
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to save: $e', style: GoogleFonts.poppins()),
+            backgroundColor: AppTheme.accentCoral,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      }
+    }
+  }
+
+  /// Handle save for existing patient - show search dialog
+  void _handleExistingPatientSave() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _ExistingPatientSearchSheet(
+        onPatientSelected: (patient) {
+          Navigator.pop(context);
+          _saveToExistingPatient(patient);
+        },
+      ),
+    );
+  }
+
+  /// Save report to existing patient
+  Future<void> _saveToExistingPatient(Map<String, String> patient) async {
+    // Show loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Center(
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(color: AppTheme.primarySkyBlue),
+              const SizedBox(height: 16),
+              Text(
+                'Linking to patient...',
+                style: GoogleFonts.poppins(fontSize: 14, color: AppTheme.darkSlate),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    try {
+      final patientId = patient['id'] ?? '';
+      final reportId = _consultation.report?.id ?? 'R${DateTime.now().millisecondsSinceEpoch}';
+
+      // Prepare sections to save
+      final sectionsToSave = Map<String, String>.from(_editedSections);
+      sectionsToSave['patient_id'] = patientId;
+      sectionsToSave['patient_name'] = patient['name'] ?? _patientNameController.text.trim();
+      sectionsToSave['age'] = patient['age'] ?? _ageController.text.trim();
+      sectionsToSave['gender'] = patient['gender'] ?? _genderController.text.trim();
+      if (patient['blood_group']?.isNotEmpty == true || _bloodGroupController.text.isNotEmpty) {
+        sectionsToSave['blood_group'] = patient['blood_group'] ?? _bloodGroupController.text.trim();
+      }
+      if (patient['phone']?.isNotEmpty == true || _phoneController.text.isNotEmpty) {
+        sectionsToSave['phone'] = patient['phone'] ?? _phoneController.text.trim();
+      }
+
+      // Save to database
+      final dbService = DatabaseService();
+      await dbService.updateReportSections(
+        reportId: reportId,
+        sections: sectionsToSave,
+      );
+
+      // Close loading dialog
+      if (mounted) Navigator.pop(context);
+
+      // Navigate to success screen
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => _ReportSavedScreen(
+              patientId: patientId,
+              reportId: reportId,
+              patientName: patient['name'] ?? _patientNameController.text.trim(),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      // Close loading dialog
+      if (mounted) Navigator.pop(context);
+
+      // Show error
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to save: $e', style: GoogleFonts.poppins()),
+            backgroundColor: AppTheme.accentCoral,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      }
+    }
   }
 
   String _formatDate(DateTime date) {
@@ -2329,6 +2574,752 @@ class _ListEditDialogState extends State<_ListEditDialog> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Report Saved Success Screen
+class _ReportSavedScreen extends StatelessWidget {
+  final String patientId;
+  final String reportId;
+  final String patientName;
+
+  const _ReportSavedScreen({
+    required this.patientId,
+    required this.reportId,
+    required this.patientName,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              AppTheme.successGreen.withOpacity(0.1),
+              Colors.white,
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              children: [
+                const SizedBox(height: 40),
+                // Success animation
+                TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0.0, end: 1.0),
+                  duration: const Duration(milliseconds: 600),
+                  curve: Curves.elasticOut,
+                  builder: (context, value, child) {
+                    return Transform.scale(
+                      scale: value,
+                      child: Container(
+                        width: 100,
+                        height: 100,
+                        decoration: BoxDecoration(
+                          color: AppTheme.successGreen.withOpacity(0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Container(
+                            width: 70,
+                            height: 70,
+                            decoration: const BoxDecoration(
+                              color: AppTheme.successGreen,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.check_rounded,
+                              color: Colors.white,
+                              size: 40,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  'Report Saved!',
+                  style: GoogleFonts.poppins(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.darkSlate,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Patient record created successfully',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    color: AppTheme.mediumGray,
+                  ),
+                ),
+                const SizedBox(height: 32),
+                // ID Cards
+                _buildIdCard(
+                  context,
+                  'Patient ID',
+                  patientId,
+                  Icons.person_rounded,
+                  AppTheme.primarySkyBlue,
+                ),
+                const SizedBox(height: 16),
+                _buildIdCard(
+                  context,
+                  'Report ID',
+                  reportId,
+                  Icons.description_rounded,
+                  AppTheme.successGreen,
+                ),
+                const SizedBox(height: 16),
+                // Patient name card
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppTheme.lightGray),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppTheme.warningAmber.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(
+                          Icons.badge_rounded,
+                          color: AppTheme.warningAmber,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Patient Name',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              color: AppTheme.mediumGray,
+                            ),
+                          ),
+                          Text(
+                            patientName,
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.darkSlate,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 32),
+                // Action buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          // Copy IDs to clipboard
+                          final text = 'Patient ID: $patientId\nReport ID: $reportId\nPatient: $patientName';
+                          Clipboard.setData(ClipboardData(text: text));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('IDs copied!', style: GoogleFonts.poppins()),
+                              backgroundColor: AppTheme.successGreen,
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.copy_rounded),
+                        label: Text('Copy IDs', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.primarySkyBlue,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          side: const BorderSide(color: AppTheme.primarySkyBlue),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pushAndRemoveUntil(
+                            context,
+                            MaterialPageRoute(builder: (_) => const HomeScreen()),
+                            (route) => false,
+                          );
+                        },
+                        icon: const Icon(Icons.home_rounded, color: Colors.white),
+                        label: Text(
+                          'Go Home',
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primarySkyBlue,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildIdCard(BuildContext context, String label, String value, IconData icon, Color color) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    color: AppTheme.mediumGray,
+                  ),
+                ),
+                Text(
+                  value,
+                  style: GoogleFonts.poppins(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.darkSlate,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          GestureDetector(
+            onTap: () {
+              Clipboard.setData(ClipboardData(text: value));
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('$label copied!', style: GoogleFonts.poppins()),
+                  backgroundColor: color,
+                  behavior: SnackBarBehavior.floating,
+                  duration: const Duration(seconds: 1),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(Icons.copy_rounded, color: color, size: 16),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Existing Patient Search Sheet
+class _ExistingPatientSearchSheet extends StatefulWidget {
+  final Function(Map<String, String>) onPatientSelected;
+
+  const _ExistingPatientSearchSheet({required this.onPatientSelected});
+
+  @override
+  State<_ExistingPatientSearchSheet> createState() => _ExistingPatientSearchSheetState();
+}
+
+class _ExistingPatientSearchSheetState extends State<_ExistingPatientSearchSheet> {
+  final TextEditingController _searchController = TextEditingController();
+  final DatabaseService _dbService = DatabaseService();
+  String _searchType = 'name'; // name, id, phone
+  List<Map<String, String>> _searchResults = [];
+  bool _isSearching = false;
+  bool _hasSearched = false;
+
+  Future<void> _performSearch() async {
+    final query = _searchController.text.trim();
+    if (query.isEmpty) {
+      setState(() {
+        _searchResults = [];
+        _hasSearched = false;
+      });
+      return;
+    }
+
+    setState(() => _isSearching = true);
+
+    try {
+      // Search from database
+      final results = await _dbService.searchPatients(
+        query: query,
+        searchType: _searchType,
+      );
+
+      if (mounted) {
+        setState(() {
+          _searchResults = results;
+          _isSearching = false;
+          _hasSearched = true;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _searchResults = [];
+          _isSearching = false;
+          _hasSearched = true;
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.85,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        children: [
+          // Handle
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          // Header
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primarySkyBlue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.person_search_rounded,
+                    color: AppTheme.primarySkyBlue,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Find Existing Patient',
+                        style: GoogleFonts.poppins(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.darkSlate,
+                        ),
+                      ),
+                      Text(
+                        'Search by name, ID, or phone number',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: AppTheme.mediumGray,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: const Icon(Icons.close, color: AppTheme.mediumGray),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          // Search type tabs
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                _buildSearchTypeChip('name', 'By Name', Icons.person_outline),
+                const SizedBox(width: 8),
+                _buildSearchTypeChip('id', 'By ID', Icons.badge_outlined),
+                const SizedBox(width: 8),
+                _buildSearchTypeChip('phone', 'By Phone', Icons.phone_outlined),
+              ],
+            ),
+          ),
+          // Search input
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: TextField(
+              controller: _searchController,
+              onChanged: (_) => _performSearch(),
+              autofocus: true,
+              style: GoogleFonts.poppins(fontSize: 15),
+              decoration: InputDecoration(
+                hintText: _getSearchHint(),
+                hintStyle: GoogleFonts.poppins(color: AppTheme.mediumGray.withOpacity(0.6)),
+                prefixIcon: const Icon(Icons.search_rounded, color: AppTheme.mediumGray),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? GestureDetector(
+                        onTap: () {
+                          _searchController.clear();
+                          setState(() {
+                            _searchResults = [];
+                            _hasSearched = false;
+                          });
+                        },
+                        child: const Icon(Icons.clear_rounded, color: AppTheme.mediumGray),
+                      )
+                    : null,
+                filled: true,
+                fillColor: AppTheme.lightGray.withOpacity(0.5),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(color: AppTheme.primarySkyBlue, width: 2),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              ),
+              keyboardType: _searchType == 'phone' ? TextInputType.phone : TextInputType.text,
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Results
+          Expanded(
+            child: _buildSearchResults(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchTypeChip(String type, String label, IconData icon) {
+    final isSelected = _searchType == type;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _searchType = type;
+            _searchResults = [];
+            _hasSearched = false;
+          });
+          if (_searchController.text.isNotEmpty) {
+            _performSearch();
+          }
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected ? AppTheme.primarySkyBlue : AppTheme.lightGray.withOpacity(0.5),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 16,
+                color: isSelected ? Colors.white : AppTheme.mediumGray,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: isSelected ? Colors.white : AppTheme.mediumGray,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _getSearchHint() {
+    switch (_searchType) {
+      case 'name':
+        return 'Enter patient name...';
+      case 'id':
+        return 'Enter patient ID (e.g., P10001)...';
+      case 'phone':
+        return 'Enter phone number...';
+      default:
+        return 'Search...';
+    }
+  }
+
+  Widget _buildSearchResults() {
+    if (_isSearching) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppTheme.primarySkyBlue),
+      );
+    }
+
+    if (!_hasSearched) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.search_rounded,
+              size: 64,
+              color: AppTheme.mediumGray.withOpacity(0.3),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Start typing to search',
+              style: GoogleFonts.poppins(
+                fontSize: 15,
+                color: AppTheme.mediumGray,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_searchResults.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.person_off_rounded,
+              size: 64,
+              color: AppTheme.mediumGray.withOpacity(0.3),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No patients found',
+              style: GoogleFonts.poppins(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.darkSlate,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Try a different search term',
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                color: AppTheme.mediumGray,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      itemCount: _searchResults.length,
+      itemBuilder: (context, index) {
+        final patient = _searchResults[index];
+        return _buildPatientCard(patient);
+      },
+    );
+  }
+
+  Widget _buildPatientCard(Map<String, String> patient) {
+    return GestureDetector(
+      onTap: () => widget.onPatientSelected(patient),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppTheme.lightGray),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            // Avatar
+            Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                color: AppTheme.primarySkyBlue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Center(
+                child: Text(
+                  patient['name']![0].toUpperCase(),
+                  style: GoogleFonts.poppins(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.primarySkyBlue,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 14),
+            // Details
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    patient['name']!,
+                    style: GoogleFonts.poppins(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.darkSlate,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: [
+                      // Show truncated ID (first 8 chars)
+                      _buildPatientTag(
+                        'ID: ${patient['id']!.length > 8 ? patient['id']!.substring(0, 8) : patient['id']!}',
+                        AppTheme.primarySkyBlue,
+                      ),
+                      if (patient['age']?.isNotEmpty == true || patient['gender']?.isNotEmpty == true)
+                        _buildPatientTag(
+                          '${patient['age']?.isNotEmpty == true ? "${patient['age']}y" : ""}${patient['age']?.isNotEmpty == true && patient['gender']?.isNotEmpty == true ? ", " : ""}${patient['gender'] ?? ""}',
+                          AppTheme.mediumGray,
+                        ),
+                      if (patient['blood_group']?.isNotEmpty == true)
+                        _buildPatientTag(patient['blood_group']!, AppTheme.accentCoral),
+                    ],
+                  ),
+                  if (patient['phone']?.isNotEmpty == true) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(Icons.phone_outlined, size: 12, color: AppTheme.mediumGray),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            patient['phone']!,
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              color: AppTheme.mediumGray,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            // Arrow
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppTheme.successGreen.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.arrow_forward_rounded,
+                color: AppTheme.successGreen,
+                size: 18,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPatientTag(String text, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        text,
+        style: GoogleFonts.poppins(
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          color: color,
         ),
       ),
     );

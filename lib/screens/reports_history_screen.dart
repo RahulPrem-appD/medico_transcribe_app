@@ -18,8 +18,6 @@ class _ReportsHistoryScreenState extends State<ReportsHistoryScreen>
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   String _searchQuery = '';
-  String _selectedFilter = 'All';
-  final List<String> _filters = ['All', 'Today', 'This Week', 'This Month'];
 
   @override
   void initState() {
@@ -45,67 +43,146 @@ class _ReportsHistoryScreenState extends State<ReportsHistoryScreen>
     super.dispose();
   }
 
-  List<Consultation> _filterConsultations(List<Consultation> consultations) {
-    var filtered = consultations;
+  /// Group consultations by patient
+  Map<String, List<Consultation>> _groupByPatient(List<Consultation> consultations) {
+    final Map<String, List<Consultation>> grouped = {};
     
-    // Filter by search query
-    if (_searchQuery.isNotEmpty) {
-      filtered = filtered.where((c) {
-        final searchLower = _searchQuery.toLowerCase();
-        return (c.patientName?.toLowerCase().contains(searchLower) ?? false) ||
-            (c.report?.chiefComplaint.toLowerCase().contains(searchLower) ?? false) ||
-            (c.report?.diagnosis.toLowerCase().contains(searchLower) ?? false);
-      }).toList();
+    for (final consultation in consultations) {
+      // Get patient name from consultation or report sections
+      String patientName = consultation.patientName ?? '';
+      
+      // Try to get from report sections if empty
+      if (patientName.isEmpty && consultation.report != null) {
+        final sections = consultation.report!.sections;
+        patientName = sections['patient_name'] ?? '';
+      }
+      
+      // Default name if still empty
+      if (patientName.isEmpty) {
+        patientName = 'Unknown Patient';
+      }
+      
+      // Create unique key using name (normalized)
+      final key = patientName.trim().toLowerCase();
+      
+      if (!grouped.containsKey(key)) {
+        grouped[key] = [];
+      }
+      grouped[key]!.add(consultation);
     }
     
-    // Filter by time
-    final now = DateTime.now();
-    switch (_selectedFilter) {
-      case 'Today':
-        filtered = filtered.where((c) =>
-            c.createdAt.day == now.day &&
-            c.createdAt.month == now.month &&
-            c.createdAt.year == now.year).toList();
-        break;
-      case 'This Week':
-        final weekAgo = now.subtract(const Duration(days: 7));
-        filtered = filtered.where((c) => c.createdAt.isAfter(weekAgo)).toList();
-        break;
-      case 'This Month':
-        filtered = filtered.where((c) =>
-            c.createdAt.month == now.month && c.createdAt.year == now.year).toList();
-        break;
+    return grouped;
+  }
+
+  /// Get patient details from their consultations
+  Map<String, String> _getPatientDetails(List<Consultation> consultations) {
+    // Use the most recent consultation for details
+    for (final consultation in consultations) {
+      if (consultation.report != null) {
+        final sections = consultation.report!.sections;
+        return {
+          'name': sections['patient_name'] ?? consultation.patientName ?? 'Unknown Patient',
+          'age': sections['age'] ?? '',
+          'gender': sections['gender'] ?? '',
+          'blood_group': sections['blood_group'] ?? '',
+          'phone': sections['phone'] ?? '',
+        };
+      }
     }
     
-    return filtered;
+    // Fallback to consultation data
+    final first = consultations.first;
+    return {
+      'name': first.patientName ?? 'Unknown Patient',
+      'age': '',
+      'gender': '',
+      'blood_group': '',
+      'phone': '',
+    };
+  }
+
+  /// Check if a consultation matches the search query
+  bool _consultationMatchesQuery(Consultation c, String query) {
+    final report = c.report;
+    if (report == null) return false;
+    
+    final sections = report.sections;
+    
+    // Search in all section values
+    for (final value in sections.values) {
+      if (value.toLowerCase().contains(query)) {
+        return true;
+      }
+    }
+    
+    // Also check legacy fields
+    if (report.chiefComplaint.toLowerCase().contains(query)) return true;
+    if (report.diagnosis.toLowerCase().contains(query)) return true;
+    if (report.symptoms.toLowerCase().contains(query)) return true;
+    if (report.prescription.toLowerCase().contains(query)) return true;
+    if (report.additionalNotes.toLowerCase().contains(query)) return true;
+    
+    // Check transcription
+    if (c.transcription?.toLowerCase().contains(query) ?? false) return true;
+    
+    // Check consultation ID
+    if (c.id.toLowerCase().contains(query)) return true;
+    
+    // Check language
+    if (c.language.toLowerCase().contains(query)) return true;
+    
+    return false;
+  }
+
+  List<MapEntry<String, List<Consultation>>> _filterPatients(
+    Map<String, List<Consultation>> grouped,
+  ) {
+    if (_searchQuery.isEmpty) {
+      return grouped.entries.toList()
+        ..sort((a, b) {
+          // Sort by most recent consultation
+          final aLatest = a.value.first.createdAt;
+          final bLatest = b.value.first.createdAt;
+          return bLatest.compareTo(aLatest);
+        });
+    }
+    
+    final query = _searchQuery.toLowerCase();
+    return grouped.entries.where((entry) {
+      final details = _getPatientDetails(entry.value);
+      
+      // Search in patient details
+      if (details['name']!.toLowerCase().contains(query)) return true;
+      if (details['phone']!.contains(query)) return true;
+      if (details['age']!.contains(query)) return true;
+      if (details['gender']!.toLowerCase().contains(query)) return true;
+      if (details['blood_group']!.toLowerCase().contains(query)) return true;
+      
+      // Search in any of the patient's consultations
+      return entry.value.any((c) => _consultationMatchesQuery(c, query));
+    }).toList()
+      ..sort((a, b) {
+        final aLatest = a.value.first.createdAt;
+        final bLatest = b.value.first.createdAt;
+        return bLatest.compareTo(aLatest);
+      });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              AppTheme.softMint,
-              AppTheme.warmCream,
-            ],
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              _buildAppBar(),
-              Expanded(
-                child: FadeTransition(
-                  opacity: _fadeAnimation,
-                  child: _buildContent(),
-                ),
+      backgroundColor: AppTheme.softSkyBg,
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildAppBar(),
+            Expanded(
+              child: FadeTransition(
+                opacity: _fadeAnimation,
+                child: _buildContent(),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -138,11 +215,11 @@ class _ReportsHistoryScreenState extends State<ReportsHistoryScreen>
               ),
             ),
           ),
-          const Expanded(
+          Expanded(
             child: Center(
               child: Text(
-                'Previous Reports',
-                style: TextStyle(
+                'Patient Reports',
+                style: GoogleFonts.poppins(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
                   color: AppTheme.darkSlate,
@@ -169,7 +246,7 @@ class _ReportsHistoryScreenState extends State<ReportsHistoryScreen>
               ),
               child: const Icon(
                 Icons.refresh_rounded,
-                color: AppTheme.primaryTeal,
+                color: AppTheme.primarySkyBlue,
                 size: 22,
               ),
             ),
@@ -185,12 +262,13 @@ class _ReportsHistoryScreenState extends State<ReportsHistoryScreen>
         if (provider.isLoading) {
           return const Center(
             child: CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation(AppTheme.primaryTeal),
+              valueColor: AlwaysStoppedAnimation(AppTheme.primarySkyBlue),
             ),
           );
         }
 
-        final filteredConsultations = _filterConsultations(provider.consultations);
+        final grouped = _groupByPatient(provider.consultations);
+        final filteredPatients = _filterPatients(grouped);
 
         return Column(
           children: [
@@ -201,8 +279,6 @@ class _ReportsHistoryScreenState extends State<ReportsHistoryScreen>
                   const SizedBox(height: 8),
                   _buildSearchBar(),
                   const SizedBox(height: 16),
-                  _buildFilterChips(),
-                  const SizedBox(height: 8),
                 ],
               ),
             ),
@@ -210,78 +286,51 @@ class _ReportsHistoryScreenState extends State<ReportsHistoryScreen>
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
               child: Row(
                 children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primarySkyBlue.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.people_rounded,
+                      color: AppTheme.primarySkyBlue,
+                      size: 16,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
                   Text(
-                    '${filteredConsultations.length} ${filteredConsultations.length == 1 ? 'Report' : 'Reports'}',
-                    style: GoogleFonts.dmSans(
+                    '${filteredPatients.length} ${filteredPatients.length == 1 ? 'Patient' : 'Patients'}',
+                    style: GoogleFonts.poppins(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: AppTheme.mediumGray,
+                      color: AppTheme.darkSlate,
                     ),
                   ),
                   const Spacer(),
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.sort_rounded,
-                        color: AppTheme.primaryTeal,
-                        size: 18,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Recent',
-                        style: GoogleFonts.dmSans(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: AppTheme.primaryTeal,
-                        ),
-                      ),
-                    ],
+                  Text(
+                    '${provider.consultations.length} total reports',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: AppTheme.mediumGray,
+                    ),
                   ),
                 ],
               ),
             ),
             Expanded(
-              child: filteredConsultations.isEmpty
+              child: filteredPatients.isEmpty
                   ? _buildEmptyState()
                   : ListView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
-                      itemCount: filteredConsultations.length,
+                      itemCount: filteredPatients.length,
                       itemBuilder: (context, index) {
-                        return _ConsultationCard(
-                          consultation: filteredConsultations[index],
-                          delay: Duration(milliseconds: 100 * index),
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              PageRouteBuilder(
-                                pageBuilder: (context, animation, secondaryAnimation) =>
-                                    ReportDetailScreen(consultation: filteredConsultations[index]),
-                                transitionsBuilder:
-                                    (context, animation, secondaryAnimation, child) {
-                                  return FadeTransition(
-                                    opacity: animation,
-                                    child: SlideTransition(
-                                      position: Tween<Offset>(
-                                        begin: const Offset(0.1, 0),
-                                        end: Offset.zero,
-                                      ).animate(CurvedAnimation(
-                                        parent: animation,
-                                        curve: Curves.easeOutCubic,
-                                      )),
-                                      child: child,
-                                    ),
-                                  );
-                                },
-                                transitionDuration: const Duration(milliseconds: 400),
-                              ),
-                            );
-                          },
-                          onDelete: () async {
-                            final confirmed = await _showDeleteConfirmation();
-                            if (confirmed == true) {
-                              await provider.deleteConsultation(filteredConsultations[index].id);
-                            }
-                          },
+                        final entry = filteredPatients[index];
+                        final patientDetails = _getPatientDetails(entry.value);
+                        return _PatientCard(
+                          patientDetails: patientDetails,
+                          consultations: entry.value,
+                          delay: Duration(milliseconds: 80 * index),
                         );
                       },
                     ),
@@ -292,133 +341,97 @@ class _ReportsHistoryScreenState extends State<ReportsHistoryScreen>
     );
   }
 
-  Future<bool?> _showDeleteConfirmation() {
-    return showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-        ),
-        title: Text(
-          'Delete Report?',
-          style: GoogleFonts.dmSans(fontWeight: FontWeight.w600),
-        ),
-        content: Text(
-          'Are you sure you want to delete this report? This action cannot be undone.',
-          style: GoogleFonts.dmSans(color: AppTheme.mediumGray),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(
-              'Cancel',
-              style: GoogleFonts.dmSans(
-                color: AppTheme.mediumGray,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(
-              'Delete',
-              style: GoogleFonts.dmSans(
-                color: AppTheme.accentCoral,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildSearchBar() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 15,
-            offset: const Offset(0, 4),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 15,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: TextField(
+            onChanged: (value) {
+              setState(() {
+                _searchQuery = value;
+              });
+            },
+            style: GoogleFonts.poppins(
+              fontSize: 15,
+              color: AppTheme.darkSlate,
+            ),
+            decoration: InputDecoration(
+              hintText: 'Search by name, diagnosis, symptoms...',
+              hintStyle: GoogleFonts.poppins(
+                fontSize: 14,
+                color: AppTheme.mediumGray.withOpacity(0.7),
+              ),
+              prefixIcon: const Icon(
+                Icons.search_rounded,
+                color: AppTheme.mediumGray,
+              ),
+              suffixIcon: _searchQuery.isNotEmpty
+                  ? GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _searchQuery = '';
+                        });
+                      },
+                      child: const Icon(
+                        Icons.clear_rounded,
+                        color: AppTheme.mediumGray,
+                        size: 20,
+                      ),
+                    )
+                  : null,
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(vertical: 16),
+            ),
+          ),
+        ),
+        if (_searchQuery.isEmpty) ...[
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                _buildSearchHint('Name'),
+                _buildSearchHint('Phone'),
+                _buildSearchHint('Diagnosis'),
+                _buildSearchHint('Symptoms'),
+                _buildSearchHint('Prescription'),
+                _buildSearchHint('Language'),
+              ],
+            ),
           ),
         ],
-      ),
-      child: TextField(
-        onChanged: (value) {
-          setState(() {
-            _searchQuery = value;
-          });
-        },
-        style: GoogleFonts.dmSans(
-          fontSize: 16,
-          color: AppTheme.darkSlate,
-        ),
-        decoration: InputDecoration(
-          hintText: 'Search by patient, complaint, or diagnosis...',
-          hintStyle: GoogleFonts.dmSans(
-            fontSize: 14,
-            color: AppTheme.mediumGray.withOpacity(0.7),
-          ),
-          prefixIcon: const Icon(
-            Icons.search_rounded,
-            color: AppTheme.mediumGray,
-          ),
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 16),
-        ),
-      ),
+      ],
     );
   }
 
-  Widget _buildFilterChips() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: _filters.map((filter) {
-          final isSelected = _selectedFilter == filter;
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: GestureDetector(
-              onTap: () {
-                setState(() {
-                  _selectedFilter = filter;
-                });
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                decoration: BoxDecoration(
-                  color: isSelected ? AppTheme.primaryTeal : Colors.white,
-                  borderRadius: BorderRadius.circular(30),
-                  border: Border.all(
-                    color: isSelected ? AppTheme.primaryTeal : Colors.grey.shade200,
-                  ),
-                  boxShadow: isSelected
-                      ? [
-                          BoxShadow(
-                            color: AppTheme.primaryTeal.withOpacity(0.3),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ]
-                      : null,
-                ),
-                child: Text(
-                  filter,
-                  style: GoogleFonts.dmSans(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: isSelected ? Colors.white : AppTheme.mediumGray,
-                  ),
-                ),
-              ),
-            ),
-          );
-        }).toList(),
+  Widget _buildSearchHint(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppTheme.lightGray.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        text,
+        style: GoogleFonts.poppins(
+          fontSize: 10,
+          color: AppTheme.mediumGray,
+        ),
       ),
     );
   }
@@ -431,19 +444,19 @@ class _ReportsHistoryScreenState extends State<ReportsHistoryScreen>
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: AppTheme.primaryTeal.withOpacity(0.1),
+              color: AppTheme.primarySkyBlue.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
             child: const Icon(
               Icons.folder_open_rounded,
-              color: AppTheme.primaryTeal,
+              color: AppTheme.primarySkyBlue,
               size: 48,
             ),
           ),
           const SizedBox(height: 24),
           Text(
-            'No Reports Found',
-            style: GoogleFonts.dmSans(
+            'No Patients Found',
+            style: GoogleFonts.poppins(
               fontSize: 20,
               fontWeight: FontWeight.w700,
               color: AppTheme.darkSlate,
@@ -452,10 +465,10 @@ class _ReportsHistoryScreenState extends State<ReportsHistoryScreen>
           const SizedBox(height: 8),
           Text(
             _searchQuery.isNotEmpty
-                ? 'Try adjusting your search or filters'
+                ? 'Try adjusting your search'
                 : 'Start a new consultation to create your first report',
             textAlign: TextAlign.center,
-            style: GoogleFonts.dmSans(
+            style: GoogleFonts.poppins(
               fontSize: 14,
               color: AppTheme.mediumGray,
             ),
@@ -466,29 +479,28 @@ class _ReportsHistoryScreenState extends State<ReportsHistoryScreen>
   }
 }
 
-class _ConsultationCard extends StatefulWidget {
-  final Consultation consultation;
+/// Patient Card - Shows patient info and expands to show reports
+class _PatientCard extends StatefulWidget {
+  final Map<String, String> patientDetails;
+  final List<Consultation> consultations;
   final Duration delay;
-  final VoidCallback onTap;
-  final VoidCallback onDelete;
 
-  const _ConsultationCard({
-    required this.consultation,
+  const _PatientCard({
+    required this.patientDetails,
+    required this.consultations,
     required this.delay,
-    required this.onTap,
-    required this.onDelete,
   });
 
   @override
-  State<_ConsultationCard> createState() => _ConsultationCardState();
+  State<_PatientCard> createState() => _PatientCardState();
 }
 
-class _ConsultationCardState extends State<_ConsultationCard>
+class _PatientCardState extends State<_PatientCard>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
   late Animation<double> _fadeAnimation;
-  bool _isPressed = false;
+  bool _isExpanded = false;
 
   @override
   void initState() {
@@ -514,23 +526,370 @@ class _ConsultationCardState extends State<_ConsultationCard>
     super.dispose();
   }
 
-  String _formatDateTime(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
-
-    if (difference.inMinutes < 60) {
-      return '${difference.inMinutes}m ago';
-    } else if (difference.inHours < 24) {
-      return '${difference.inHours}h ago';
-    } else if (difference.inDays == 1) {
-      return 'Yesterday';
-    } else if (difference.inDays < 7) {
-      return '${difference.inDays}d ago';
-    } else {
-      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      return '${dateTime.day} ${months[dateTime.month - 1]}';
+  String _getInitials(String name) {
+    final parts = name.split(' ');
+    if (parts.length >= 2) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
     }
+    return name.isNotEmpty ? name[0].toUpperCase() : 'P';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final name = widget.patientDetails['name'] ?? 'Unknown';
+    final age = widget.patientDetails['age'] ?? '';
+    final gender = widget.patientDetails['gender'] ?? '';
+    final bloodGroup = widget.patientDetails['blood_group'] ?? '';
+    final phone = widget.patientDetails['phone'] ?? '';
+    final reportCount = widget.consultations.length;
+
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: ScaleTransition(
+        scale: _scaleAnimation,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 15,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              // Patient Header
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _isExpanded = !_isExpanded;
+                  });
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(18),
+                  child: Row(
+                    children: [
+                      // Avatar
+                      Container(
+                        width: 54,
+                        height: 54,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              AppTheme.primarySkyBlue,
+                              AppTheme.deepSkyBlue,
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Center(
+                          child: Text(
+                            _getInitials(name),
+                            style: GoogleFonts.poppins(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      // Details
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              name,
+                              style: GoogleFonts.poppins(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.darkSlate,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                if (age.isNotEmpty || gender.isNotEmpty)
+                                  _buildTag(
+                                    '${age.isNotEmpty ? "${age}y" : ""}${age.isNotEmpty && gender.isNotEmpty ? ", " : ""}$gender',
+                                    AppTheme.mediumGray,
+                                  ),
+                                if (bloodGroup.isNotEmpty) ...[
+                                  const SizedBox(width: 6),
+                                  _buildTag(bloodGroup, AppTheme.accentCoral),
+                                ],
+                              ],
+                            ),
+                            if (phone.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Icon(Icons.phone_outlined, size: 12, color: AppTheme.mediumGray),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    phone,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 11,
+                                      color: AppTheme.mediumGray,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      // Report count & expand icon
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: AppTheme.successGreen.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.description_rounded,
+                                  size: 14,
+                                  color: AppTheme.successGreen,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '$reportCount',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTheme.successGreen,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          AnimatedRotation(
+                            turns: _isExpanded ? 0.5 : 0,
+                            duration: const Duration(milliseconds: 200),
+                            child: Icon(
+                              Icons.keyboard_arrow_down_rounded,
+                              color: AppTheme.mediumGray,
+                              size: 24,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              // Expanded Reports List
+              AnimatedCrossFade(
+                firstChild: const SizedBox.shrink(),
+                secondChild: _buildReportsList(),
+                crossFadeState: _isExpanded
+                    ? CrossFadeState.showSecond
+                    : CrossFadeState.showFirst,
+                duration: const Duration(milliseconds: 200),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTag(String text, Color color) {
+    if (text.isEmpty) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        text,
+        style: GoogleFonts.poppins(
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+          color: color,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReportsList() {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.lightGray.withOpacity(0.3),
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
+      ),
+      child: Column(
+        children: [
+          const Divider(height: 1, color: AppTheme.lightGray),
+          ...widget.consultations.asMap().entries.map((entry) {
+            final index = entry.key;
+            final consultation = entry.value;
+            return _buildReportItem(consultation, index == widget.consultations.length - 1);
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReportItem(Consultation consultation, bool isLast) {
+    final report = consultation.report;
+    final chiefComplaint = report?.chiefComplaint ?? 
+                           report?.sections['chief_complaint'] ?? 
+                           'No complaint recorded';
+    
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) =>
+                ReportDetailScreen(consultation: consultation),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              return FadeTransition(
+                opacity: animation,
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0.1, 0),
+                    end: Offset.zero,
+                  ).animate(CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOutCubic,
+                  )),
+                  child: child,
+                ),
+              );
+            },
+            transitionDuration: const Duration(milliseconds: 400),
+          ),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        decoration: BoxDecoration(
+          border: isLast ? null : Border(
+            bottom: BorderSide(color: AppTheme.lightGray.withOpacity(0.5)),
+          ),
+        ),
+        child: Row(
+          children: [
+            // Date indicator
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppTheme.lightGray),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    '${consultation.createdAt.day}',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.darkSlate,
+                      height: 1,
+                    ),
+                  ),
+                  Text(
+                    _getMonthAbbr(consultation.createdAt.month),
+                    style: GoogleFonts.poppins(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.mediumGray,
+                      height: 1.2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Report details
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    chiefComplaint.length > 50 
+                        ? '${chiefComplaint.substring(0, 50)}...'
+                        : chiefComplaint,
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.darkSlate,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(Icons.access_time_rounded, size: 12, color: AppTheme.mediumGray),
+                      const SizedBox(width: 4),
+                      Text(
+                        _formatTime(consultation.createdAt),
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          color: AppTheme.mediumGray,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: _getLanguageColor(consultation.language).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          consultation.language,
+                          style: GoogleFonts.poppins(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                            color: _getLanguageColor(consultation.language),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            // Arrow
+            Icon(
+              Icons.chevron_right_rounded,
+              color: AppTheme.mediumGray,
+              size: 22,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _getMonthAbbr(int month) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return months[month - 1];
+  }
+
+  String _formatTime(DateTime dateTime) {
+    final hour = dateTime.hour > 12 ? dateTime.hour - 12 : dateTime.hour;
+    final period = dateTime.hour >= 12 ? 'PM' : 'AM';
+    final minute = dateTime.minute.toString().padLeft(2, '0');
+    return '$hour:$minute $period';
   }
 
   Color _getLanguageColor(String language) {
@@ -546,282 +905,6 @@ class _ConsultationCardState extends State<_ConsultationCard>
       'Punjabi': const Color(0xFF64B5F6),
       'English': const Color(0xFF90A4AE),
     };
-    return colors[language] ?? AppTheme.primaryTeal;
-  }
-
-  Color _getStatusColor(ConsultationStatus status) {
-    switch (status) {
-      case ConsultationStatus.completed:
-        return AppTheme.successGreen;
-      case ConsultationStatus.failed:
-        return AppTheme.accentCoral;
-      case ConsultationStatus.transcribing:
-      case ConsultationStatus.generating_report:
-        return AppTheme.warningAmber;
-      default:
-        return AppTheme.mediumGray;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final consultation = widget.consultation;
-    final report = consultation.report;
-    
-    return FadeTransition(
-      opacity: _fadeAnimation,
-      child: ScaleTransition(
-        scale: _scaleAnimation,
-        child: GestureDetector(
-          onTapDown: (_) => setState(() => _isPressed = true),
-          onTapUp: (_) => setState(() => _isPressed = false),
-          onTapCancel: () => setState(() => _isPressed = false),
-          onTap: widget.onTap,
-          onLongPress: widget.onDelete,
-          child: AnimatedScale(
-            scale: _isPressed ? 0.98 : 1.0,
-            duration: const Duration(milliseconds: 100),
-            child: Container(
-              margin: const EdgeInsets.only(bottom: 16),
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
-                    blurRadius: 15,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      // Patient avatar
-                      Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              AppTheme.primaryTeal.withOpacity(0.8),
-                              AppTheme.deepTeal,
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Center(
-                          child: Text(
-                            (consultation.patientName ?? 'P')[0].toUpperCase(),
-                            style: GoogleFonts.dmSans(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              consultation.patientName ?? 'Unknown Patient',
-                              style: GoogleFonts.dmSans(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                color: AppTheme.darkSlate,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 3,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: _getLanguageColor(consultation.language)
-                                        .withOpacity(0.15),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    consultation.language,
-                                    style: GoogleFonts.dmSans(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: _getLanguageColor(consultation.language),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: _getStatusColor(consultation.status).withOpacity(0.15),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    consultation.statusDisplayText,
-                                    style: GoogleFonts.dmSans(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w600,
-                                      color: _getStatusColor(consultation.status),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            _formatDateTime(consultation.createdAt),
-                            style: GoogleFonts.dmSans(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: AppTheme.mediumGray,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          const Icon(
-                            Icons.chevron_right_rounded,
-                            color: AppTheme.mediumGray,
-                            size: 24,
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  if (report != null) ...[
-                    const SizedBox(height: 16),
-                    // Chief complaint preview
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: AppTheme.lightGray.withOpacity(0.5),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: AppTheme.accentCoral.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(
-                              Icons.medical_services_rounded,
-                              color: AppTheme.accentCoral,
-                              size: 16,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Chief Complaint',
-                                  style: GoogleFonts.dmSans(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w500,
-                                    color: AppTheme.mediumGray,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  report.chiefComplaint.isNotEmpty 
-                                      ? report.chiefComplaint 
-                                      : 'Not documented',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: GoogleFonts.dmSans(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppTheme.darkSlate,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    // Diagnosis preview
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.health_and_safety_rounded,
-                          color: AppTheme.primaryTeal,
-                          size: 16,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            report.diagnosis.isNotEmpty 
-                                ? report.diagnosis 
-                                : 'Diagnosis pending',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.dmSans(
-                              fontSize: 13,
-                              color: AppTheme.primaryTeal,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ] else if (consultation.status == ConsultationStatus.failed) ...[
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppTheme.accentCoral.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.error_outline_rounded,
-                            color: AppTheme.accentCoral,
-                            size: 16,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              consultation.errorMessage ?? 'Processing failed',
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.dmSans(
-                                fontSize: 12,
-                                color: AppTheme.accentCoral,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
+    return colors[language] ?? AppTheme.primarySkyBlue;
   }
 }
