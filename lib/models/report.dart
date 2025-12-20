@@ -22,49 +22,65 @@ class Report {
   String get symptoms => sections['symptoms'] ?? '';
   String get diagnosis => sections['diagnosis'] ?? '';
   String get prescription => sections['prescription'] ?? '';
-  String get additionalNotes => sections['additional_notes'] ?? sections['notes'] ?? '';
+  String get additionalNotes =>
+      sections['additional_notes'] ?? sections['notes'] ?? '';
 
   factory Report.fromRow(Map<String, dynamic> row) {
     // Parse sections from JSON string or build from legacy columns
     Map<String, String> sections = {};
-    
-    if (row['sections'] != null) {
+
+    // First try to parse sections JSON
+    if (row['sections'] != null && row['sections'].toString().isNotEmpty) {
       try {
-        final sectionsData = row['sections'] is String 
-            ? jsonDecode(row['sections']) 
+        final sectionsData = row['sections'] is String
+            ? jsonDecode(row['sections'])
             : row['sections'];
         if (sectionsData is Map) {
           sectionsData.forEach((key, value) {
-            sections[key.toString()] = value?.toString() ?? '';
+            if (value != null && value.toString().isNotEmpty) {
+              sections[key.toString()] = value.toString();
+            }
           });
         }
       } catch (e) {
         print('Error parsing sections: $e');
       }
     }
-    
-    // Fall back to legacy columns if sections is empty
-    if (sections.isEmpty) {
-      if (row['chief_complaint'] != null) sections['chief_complaint'] = row['chief_complaint'];
-      if (row['symptoms'] != null) sections['symptoms'] = row['symptoms'];
-      if (row['diagnosis'] != null) sections['diagnosis'] = row['diagnosis'];
-      if (row['prescription'] != null) sections['prescription'] = row['prescription'];
-      if (row['additional_notes'] != null) sections['additional_notes'] = row['additional_notes'];
-    }
+
+    // Always check legacy columns and add them if not already present
+    final legacyFields = {
+      'chief_complaint': row['chief_complaint'],
+      'symptoms': row['symptoms'],
+      'diagnosis': row['diagnosis'],
+      'prescription': row['prescription'],
+      'additional_notes': row['additional_notes'],
+    };
+
+    legacyFields.forEach((key, value) {
+      if (value != null &&
+          value.toString().isNotEmpty &&
+          !sections.containsKey(key)) {
+        sections[key] = value.toString();
+      }
+    });
 
     return Report(
-      id: row['id'].toString(),
-      consultationId: row['consultation_id'].toString(),
+      id: row['id']?.toString() ?? '',
+      consultationId: row['consultation_id']?.toString() ?? '',
       sections: sections,
-      generatedBy: row['generated_by'] ?? 'feather_ai',
-      createdAt: row['created_at'] ?? DateTime.now(),
-      updatedAt: row['updated_at'] ?? DateTime.now(),
+      generatedBy: row['generated_by']?.toString() ?? 'feather_ai',
+      createdAt: row['created_at'] is DateTime
+          ? row['created_at']
+          : DateTime.now(),
+      updatedAt: row['updated_at'] is DateTime
+          ? row['updated_at']
+          : DateTime.now(),
     );
   }
 
   factory Report.fromJson(Map<String, dynamic> json) {
     Map<String, String> sections = {};
-    
+
     if (json['sections'] != null) {
       final sectionsData = json['sections'];
       if (sectionsData is Map) {
@@ -73,14 +89,17 @@ class Report {
         });
       }
     }
-    
+
     // Fall back to legacy fields if sections is empty
     if (sections.isEmpty) {
-      if (json['chief_complaint'] != null) sections['chief_complaint'] = json['chief_complaint'];
+      if (json['chief_complaint'] != null)
+        sections['chief_complaint'] = json['chief_complaint'];
       if (json['symptoms'] != null) sections['symptoms'] = json['symptoms'];
       if (json['diagnosis'] != null) sections['diagnosis'] = json['diagnosis'];
-      if (json['prescription'] != null) sections['prescription'] = json['prescription'];
-      if (json['additional_notes'] != null) sections['additional_notes'] = json['additional_notes'];
+      if (json['prescription'] != null)
+        sections['prescription'] = json['prescription'];
+      if (json['additional_notes'] != null)
+        sections['additional_notes'] = json['additional_notes'];
     }
 
     return Report(
@@ -88,11 +107,11 @@ class Report {
       consultationId: json['consultation_id'] ?? '',
       sections: sections,
       generatedBy: json['generated_by'] ?? 'feather_ai',
-      createdAt: json['created_at'] != null 
-          ? DateTime.parse(json['created_at']) 
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'])
           : DateTime.now(),
-      updatedAt: json['updated_at'] != null 
-          ? DateTime.parse(json['updated_at']) 
+      updatedAt: json['updated_at'] != null
+          ? DateTime.parse(json['updated_at'])
           : DateTime.now(),
     );
   }
@@ -142,9 +161,11 @@ class Report {
     return key
         .replaceAll('_', ' ')
         .split(' ')
-        .map((word) => word.isNotEmpty 
-            ? '${word[0].toUpperCase()}${word.substring(1)}' 
-            : '')
+        .map(
+          (word) => word.isNotEmpty
+              ? '${word[0].toUpperCase()}${word.substring(1)}'
+              : '',
+        )
         .join(' ');
   }
 

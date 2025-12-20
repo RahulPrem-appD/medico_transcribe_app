@@ -292,6 +292,40 @@ class DatabaseService {
     return consultation;
   }
 
+  /// Update a report's sections
+  Future<Report> updateReportSections({
+    required String reportId,
+    required Map<String, String> sections,
+  }) async {
+    await _ensureConnection();
+
+    final now = DateTime.now().toIso8601String();
+
+    // Update sections as JSON and also update legacy fields for backward compatibility
+    await _database!.update(
+      'reports',
+      {
+        'sections': jsonEncode(sections),
+        'chief_complaint': sections['chief_complaint'] ?? '',
+        'symptoms': sections['symptoms'] ?? '',
+        'diagnosis': sections['diagnosis'] ?? sections['assessment'] ?? '',
+        'prescription': sections['prescription'] ?? sections['your_medications'] ?? '',
+        'additional_notes': sections['additional_notes'] ?? sections['notes'] ?? '',
+        'updated_at': now,
+      },
+      where: 'id = ?',
+      whereArgs: [reportId],
+    );
+
+    final result = await _database!.query(
+      'reports',
+      where: 'id = ?',
+      whereArgs: [reportId],
+    );
+
+    return Report.fromRow(_convertRow(result.first));
+  }
+
   /// Delete a consultation
   Future<void> deleteConsultation(String id) async {
     await _ensureConnection();

@@ -6,6 +6,7 @@ import '../theme/app_theme.dart';
 import '../models/consultation.dart';
 import '../models/report.dart';
 import '../providers/consultation_provider.dart';
+import '../services/database_service.dart';
 import 'home_screen.dart';
 
 class ResultsScreen extends StatefulWidget {
@@ -23,6 +24,8 @@ class ResultsScreen extends StatefulWidget {
 class _ResultsScreenState extends State<ResultsScreen> {
   late Consultation _consultation;
   bool _isRegenerating = false;
+  Map<String, String> _editedSections = {};
+  bool _hasUnsavedChanges = false;
 
   // Color palette for sections
   final List<Color> _sectionColors = [
@@ -95,6 +98,10 @@ class _ResultsScreenState extends State<ResultsScreen> {
   void initState() {
     super.initState();
     _consultation = widget.consultation;
+    // Initialize edited sections with current values
+    if (_consultation.report != null) {
+      _editedSections = Map.from(_consultation.report!.sections);
+    }
   }
 
   Color _getSectionColor(int index) {
@@ -210,7 +217,8 @@ class _ResultsScreenState extends State<ResultsScreen> {
                   ...report.sectionKeys.asMap().entries.map((entry) {
                     final index = entry.key;
                     final key = entry.value;
-                    final content = report.sections[key] ?? '';
+                    // Use edited content if available, otherwise original
+                    final content = _editedSections[key] ?? report.sections[key] ?? '';
                     final displayName = Report.keyToDisplayName(key);
                     final color = _getSectionColor(index);
                     final icon = _getSectionIcon(key);
@@ -218,6 +226,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 16),
                       child: _buildSectionCard(
+                        key,
                         displayName,
                         icon,
                         content,
@@ -264,15 +273,29 @@ class _ResultsScreenState extends State<ResultsScreen> {
               ),
             ),
           ),
-          const Expanded(
+          Expanded(
             child: Center(
-              child: Text(
-                'Consultation Notes',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.darkSlate,
-                ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Consultation Notes',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.darkSlate,
+                    ),
+                  ),
+                  if (_hasUnsavedChanges)
+                    Text(
+                      'Unsaved changes',
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        color: AppTheme.warningAmber,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                ],
               ),
             ),
           ),
@@ -514,63 +537,538 @@ class _ResultsScreenState extends State<ResultsScreen> {
   }
 
   Widget _buildSectionCard(
-      String title, IconData icon, String content, Color accentColor) {
-    // Format the content for better display
-    final formattedContent = _formatSectionContent(content);
+      String sectionKey, String title, IconData icon, String content, Color accentColor) {
     
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.04),
-            blurRadius: 15,
-            offset: const Offset(0, 4),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Simple header row
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: accentColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon, color: accentColor, size: 22),
-              ),
-              const SizedBox(width: 12),
+              Icon(icon, color: accentColor, size: 20),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   title,
                   style: GoogleFonts.poppins(
-                    fontSize: 16,
+                    fontSize: 15,
                     fontWeight: FontWeight.w600,
                     color: AppTheme.darkSlate,
                   ),
                 ),
               ),
+              // Edit button
+              GestureDetector(
+                onTap: () => _showEditDialog(sectionKey, title, content, accentColor),
+                child: Icon(
+                  Icons.edit_outlined,
+                  color: AppTheme.mediumGray,
+                  size: 18,
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 16),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: accentColor.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: accentColor.withOpacity(0.1),
-              ),
-            ),
-            child: _buildFormattedContent(formattedContent, accentColor),
-          ),
+          const SizedBox(height: 12),
+          // Simple content
+          _buildSimpleContent(content, sectionKey),
         ],
+      ),
+    );
+  }
+
+  /// Build simple, clean content display
+  Widget _buildSimpleContent(String content, String sectionKey) {
+    if (content.isEmpty || content.trim().isEmpty || content.trim() == 'Not documented') {
+      return Text(
+        'Not documented',
+        style: GoogleFonts.poppins(
+          fontSize: 14,
+          color: AppTheme.mediumGray,
+          fontStyle: FontStyle.italic,
+        ),
+      );
+    }
+
+    // Clean content
+    String cleanContent = content
+        .replaceAll('\\n', '\n')
+        .replaceAll('\\"', '"')
+        .replaceAll('\\\\', '\\')
+        .replaceAll('**', '')
+        .replaceAll('###', '')
+        .replaceAll('##', '')
+        .replaceAll('#', '')
+        .replaceAll('```', '')
+        .trim();
+
+    // Try to parse JSON
+    if (cleanContent.startsWith('{') || cleanContent.startsWith('[')) {
+      try {
+        final parsed = jsonDecode(cleanContent);
+        cleanContent = _jsonToPlainText(parsed);
+      } catch (e) {
+        // Not valid JSON
+      }
+    }
+
+    // Check if content has bullet points
+    final lines = cleanContent.split('\n').where((l) => l.trim().isNotEmpty).toList();
+    final hasBullets = lines.any((l) => 
+        l.trim().startsWith('•') || 
+        l.trim().startsWith('-') || 
+        l.trim().startsWith('*') ||
+        RegExp(r'^\d+\.').hasMatch(l.trim()));
+
+    if (hasBullets || lines.length > 1) {
+      // Show as bullet list
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: lines.map((line) {
+          line = line.trim();
+          // Remove bullet prefix
+          if (line.startsWith('•') || line.startsWith('-') || line.startsWith('*')) {
+            line = line.substring(1).trim();
+          } else if (RegExp(r'^\d+\.\s*').hasMatch(line)) {
+            line = line.replaceFirst(RegExp(r'^\d+\.\s*'), '');
+          }
+          
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  margin: const EdgeInsets.only(top: 7, right: 10),
+                  width: 5,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: AppTheme.mediumGray,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    line,
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      color: AppTheme.darkSlate,
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      );
+    }
+
+    // Single text content
+    return Text(
+      cleanContent,
+      style: GoogleFonts.poppins(
+        fontSize: 14,
+        color: AppTheme.darkSlate,
+        height: 1.5,
+      ),
+    );
+  }
+
+  /// Convert JSON to plain text
+  String _jsonToPlainText(dynamic json) {
+    final lines = <String>[];
+    
+    if (json is Map) {
+      json.forEach((key, value) {
+        if (value == null || value.toString().isEmpty || value.toString() == 'Not documented') return;
+        
+        if (value is String) {
+          if (value.contains('\n')) {
+            lines.addAll(value.split('\n').where((l) => l.trim().isNotEmpty));
+          } else {
+            lines.add('• $value');
+          }
+        } else if (value is List) {
+          for (var item in value) {
+            if (item is String && item.isNotEmpty) {
+              lines.add('• $item');
+            } else if (item is Map) {
+              final parts = item.entries
+                  .where((e) => e.value != null && e.value.toString().isNotEmpty)
+                  .map((e) => '${e.key}: ${e.value}')
+                  .join(', ');
+              if (parts.isNotEmpty) lines.add('• $parts');
+            }
+          }
+        } else {
+          lines.add('• $value');
+        }
+      });
+    } else if (json is List) {
+      for (var item in json) {
+        if (item is String && item.isNotEmpty) {
+          lines.add('• $item');
+        }
+      }
+    }
+    
+    return lines.join('\n');
+  }
+
+  /// Check if content is list-type (has bullet points or multiple lines)
+  bool _isListContent(String content, String sectionKey) {
+    final lowerKey = sectionKey.toLowerCase();
+    // These sections are typically lists
+    final listSections = [
+      'symptoms', 'prescription', 'medication', 'allergies', 
+      'investigations', 'advice', 'instructions', 'notes',
+      'current_medications', 'treatment_plan', 'follow_up',
+      'warning_signs', 'differential'
+    ];
+    
+    if (listSections.any((s) => lowerKey.contains(s))) {
+      return true;
+    }
+    
+    // Check if content has bullet points or multiple lines
+    return content.contains('•') || 
+           content.contains('\n-') || 
+           content.split('\n').where((l) => l.trim().isNotEmpty).length > 1;
+  }
+
+  /// Parse content into list items
+  List<String> _parseListItems(String content) {
+    if (content.isEmpty) return [];
+    
+    final lines = content
+        .replaceAll('\\n', '\n')
+        .split('\n')
+        .map((l) => l.trim())
+        .where((l) => l.isNotEmpty)
+        .map((l) {
+          // Remove bullet point prefixes
+          if (l.startsWith('•')) return l.substring(1).trim();
+          if (l.startsWith('-')) return l.substring(1).trim();
+          if (l.startsWith('*')) return l.substring(1).trim();
+          if (RegExp(r'^\d+\.').hasMatch(l)) {
+            return l.replaceFirst(RegExp(r'^\d+\.\s*'), '');
+          }
+          return l;
+        })
+        .where((l) => l.isNotEmpty)
+        .toList();
+    
+    return lines;
+  }
+
+  /// Convert list items back to content string
+  String _listItemsToContent(List<String> items) {
+    return items.map((item) => '• $item').join('\n');
+  }
+
+  void _showEditDialog(String sectionKey, String title, String content, Color accentColor) {
+    // Check if this is a list-type section
+    if (_isListContent(content, sectionKey)) {
+      _showListEditDialog(sectionKey, title, content, accentColor);
+    } else {
+      _showTextEditDialog(sectionKey, title, content, accentColor);
+    }
+  }
+
+  /// Show list-based editor for list-type content
+  void _showListEditDialog(String sectionKey, String title, String content, Color accentColor) {
+    final items = _parseListItems(content);
+    
+    showDialog(
+      context: context,
+      builder: (context) => _ListEditDialog(
+        title: title,
+        items: items,
+        accentColor: accentColor,
+        sectionKey: sectionKey,
+        onSave: (updatedItems) {
+          setState(() {
+            _editedSections[sectionKey] = _listItemsToContent(updatedItems);
+            _hasUnsavedChanges = true;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Section updated',
+                    style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
+              backgroundColor: AppTheme.successGreen,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              margin: const EdgeInsets.all(16),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  /// Show text-based editor for non-list content
+  void _showTextEditDialog(String sectionKey, String title, String content, Color accentColor) {
+    final controller = TextEditingController(text: content);
+    
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(16),
+        child: Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.8,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.15),
+                blurRadius: 30,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      accentColor.withOpacity(0.1),
+                      accentColor.withOpacity(0.05),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(24),
+                    topRight: Radius.circular(24),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: accentColor.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(Icons.edit_note_rounded, color: accentColor, size: 24),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Edit Section',
+                            style: GoogleFonts.poppins(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.darkSlate,
+                            ),
+                          ),
+                          Text(
+                            title,
+                            style: GoogleFonts.poppins(
+                              fontSize: 13,
+                              color: AppTheme.mediumGray,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(
+                          Icons.close_rounded,
+                          color: AppTheme.mediumGray,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Text field
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: TextField(
+                    controller: controller,
+                    maxLines: null,
+                    minLines: 8,
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      color: AppTheme.darkSlate,
+                      height: 1.6,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Enter content for this section...',
+                      hintStyle: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: AppTheme.mediumGray.withOpacity(0.6),
+                      ),
+                      filled: true,
+                      fillColor: AppTheme.lightGray.withOpacity(0.5),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide(
+                          color: accentColor.withOpacity(0.5),
+                          width: 2,
+                        ),
+                      ),
+                      contentPadding: const EdgeInsets.all(16),
+                    ),
+                  ),
+                ),
+              ),
+              // Actions
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: AppTheme.lightGray.withOpacity(0.3),
+                  borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(24),
+                    bottomRight: Radius.circular(24),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => Navigator.pop(context),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: AppTheme.mediumGray.withOpacity(0.2),
+                            ),
+                          ),
+                          child: Center(
+                            child: Text(
+                              'Cancel',
+                              style: GoogleFonts.poppins(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.mediumGray,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _editedSections[sectionKey] = controller.text;
+                            _hasUnsavedChanges = true;
+                          });
+                          Navigator.pop(context);
+                          // Show confirmation
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Row(
+                                children: [
+                                  const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Section updated',
+                                    style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+                                  ),
+                                ],
+                              ),
+                              backgroundColor: AppTheme.successGreen,
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              margin: const EdgeInsets.all(16),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [accentColor, accentColor.withOpacity(0.8)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(14),
+                            boxShadow: [
+                              BoxShadow(
+                                color: accentColor.withOpacity(0.3),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Center(
+                            child: Text(
+                              'Save Changes',
+                              style: GoogleFonts.poppins(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -673,22 +1171,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
             // Done button - main action
             Expanded(
               child: ElevatedButton(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Report saved successfully!',
-                        style: GoogleFonts.poppins(),
-                      ),
-                      backgroundColor: AppTheme.successGreen,
-                      behavior: SnackBarBehavior.floating,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  );
-                  _navigateHome();
-                },
+                onPressed: _saveAndClose,
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 18),
                   backgroundColor: AppTheme.primarySkyBlue,
@@ -993,6 +1476,125 @@ class _ResultsScreenState extends State<ResultsScreen> {
     );
   }
 
+  Future<void> _saveAndClose() async {
+    // Save edited sections if there are changes
+    if (_hasUnsavedChanges && _consultation.report != null) {
+      try {
+        // Show loading indicator
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => Center(
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const CircularProgressIndicator(
+                    color: AppTheme.primarySkyBlue,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Saving changes...',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      color: AppTheme.darkSlate,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+
+        // Update the report in the database
+        final dbService = DatabaseService();
+        await dbService.updateReportSections(
+          reportId: _consultation.report!.id,
+          sections: _editedSections,
+        );
+
+        // Close loading dialog
+        if (mounted) Navigator.pop(context);
+
+        // Show success message
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Report saved successfully!',
+                    style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
+              backgroundColor: AppTheme.successGreen,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              margin: const EdgeInsets.all(16),
+            ),
+          );
+        }
+      } catch (e) {
+        // Close loading dialog
+        if (mounted) Navigator.pop(context);
+
+        // Show error message
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.error_rounded, color: Colors.white, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Failed to save: $e',
+                      style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: AppTheme.accentCoral,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              margin: const EdgeInsets.all(16),
+            ),
+          );
+        }
+        return;
+      }
+    } else {
+      // No changes, just show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Report saved successfully!',
+            style: GoogleFonts.poppins(),
+          ),
+          backgroundColor: AppTheme.successGreen,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
+    }
+    
+    _navigateHome();
+  }
+
   String _formatDate(DateTime date) {
     final months = [
       'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -1001,189 +1603,6 @@ class _ResultsScreenState extends State<ResultsScreen> {
     return '${date.day} ${months[date.month - 1]} ${date.year}, ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
   }
 
-  /// Format section content for better display
-  String _formatSectionContent(String content) {
-    if (content.isEmpty) return 'Not documented';
-    
-    String formatted = content;
-    
-    // Try to parse as JSON if it looks like JSON
-    if (formatted.trim().startsWith('{') || formatted.trim().startsWith('[')) {
-      try {
-        final parsed = jsonDecode(formatted);
-        formatted = _jsonToReadableText(parsed);
-      } catch (e) {
-        // Not valid JSON, continue with string processing
-      }
-    }
-    
-    // Clean up common formatting issues
-    formatted = formatted
-        .replaceAll('\\n', '\n')
-        .replaceAll('\\"', '"')
-        .replaceAll('**', '')  // Remove markdown bold
-        .replaceAll('###', '')  // Remove markdown headers
-        .replaceAll('##', '')
-        .replaceAll('```', '')  // Remove code blocks
-        .trim();
-    
-    // Convert markdown-style lists to clean format
-    formatted = formatted
-        .replaceAll(RegExp(r'^\s*[-*]\s+', multiLine: true), '• ')
-        .replaceAll(RegExp(r'^\s*\d+\.\s+', multiLine: true), '• ');
-    
-    return formatted.isNotEmpty ? formatted : 'Not documented';
-  }
-
-  /// Convert JSON object to readable text
-  String _jsonToReadableText(dynamic json, {int indent = 0}) {
-    final buffer = StringBuffer();
-    final indentStr = '  ' * indent;
-    
-    if (json is Map) {
-      json.forEach((key, value) {
-        final formattedKey = _formatKeyName(key.toString());
-        if (value is String) {
-          if (value.isNotEmpty) {
-            buffer.writeln('$indentStr• $formattedKey: $value');
-          }
-        } else if (value is List) {
-          buffer.writeln('$indentStr• $formattedKey:');
-          for (var item in value) {
-            if (item is String) {
-              buffer.writeln('$indentStr  - $item');
-            } else if (item is Map) {
-              final parts = <String>[];
-              item.forEach((k, v) {
-                if (v != null && v.toString().isNotEmpty) {
-                  parts.add('${_formatKeyName(k.toString())}: $v');
-                }
-              });
-              if (parts.isNotEmpty) {
-                buffer.writeln('$indentStr  - ${parts.join(', ')}');
-              }
-            } else {
-              buffer.writeln('$indentStr  - $item');
-            }
-          }
-        } else if (value is Map) {
-          buffer.writeln('$indentStr• $formattedKey:');
-          buffer.write(_jsonToReadableText(value, indent: indent + 1));
-        } else if (value != null) {
-          buffer.writeln('$indentStr• $formattedKey: $value');
-        }
-      });
-    } else if (json is List) {
-      for (var item in json) {
-        if (item is String) {
-          buffer.writeln('$indentStr• $item');
-        } else if (item is Map) {
-          buffer.write(_jsonToReadableText(item, indent: indent));
-        } else {
-          buffer.writeln('$indentStr• $item');
-        }
-      }
-    } else {
-      buffer.write(json.toString());
-    }
-    
-    return buffer.toString().trim();
-  }
-
-  /// Format a key name to be more readable
-  String _formatKeyName(String key) {
-    return key
-        .replaceAll('_', ' ')
-        .replaceAll('-', ' ')
-        .split(' ')
-        .map((word) => word.isNotEmpty 
-            ? '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}' 
-            : '')
-        .join(' ');
-  }
-
-  /// Build formatted content widget with proper styling for bullet points
-  Widget _buildFormattedContent(String content, Color accentColor) {
-    if (content.isEmpty || content == 'Not documented') {
-      return Text(
-        'Not documented',
-        style: GoogleFonts.poppins(
-          fontSize: 14,
-          color: AppTheme.mediumGray,
-          fontStyle: FontStyle.italic,
-        ),
-      );
-    }
-
-    // Check if content has bullet points
-    final hasBullets = content.contains('•') || content.contains('- ');
-    
-    if (hasBullets) {
-      // Parse and display as structured list
-      final lines = content.split('\n').where((line) => line.trim().isNotEmpty).toList();
-      
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: lines.map((line) {
-          final trimmedLine = line.trim();
-          final isBullet = trimmedLine.startsWith('•') || trimmedLine.startsWith('- ');
-          final isSubItem = line.startsWith('  ') || line.startsWith('\t');
-          
-          String displayText = trimmedLine;
-          if (isBullet) {
-            displayText = trimmedLine.substring(1).trim();
-            if (displayText.startsWith(' ')) {
-              displayText = displayText.substring(1);
-            }
-          }
-          
-          return Padding(
-            padding: EdgeInsets.only(
-              bottom: 8,
-              left: isSubItem ? 16 : 0,
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (isBullet) ...[
-                  Container(
-                    margin: const EdgeInsets.only(top: 6, right: 8),
-                    width: 6,
-                    height: 6,
-                    decoration: BoxDecoration(
-                      color: isSubItem ? accentColor.withOpacity(0.5) : accentColor,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ],
-                Expanded(
-                  child: Text(
-                    isBullet ? displayText : trimmedLine,
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      color: AppTheme.darkSlate,
-                      height: 1.5,
-                      fontWeight: isSubItem ? FontWeight.normal : FontWeight.w400,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }).toList(),
-      );
-    }
-    
-    // Regular text without bullets
-    return Text(
-      content,
-      style: GoogleFonts.poppins(
-        fontSize: 14,
-        color: AppTheme.darkSlate,
-        height: 1.6,
-      ),
-    );
-  }
 }
 
 class _InfoRow {
@@ -1191,3 +1610,513 @@ class _InfoRow {
   final String value;
   _InfoRow(this.label, this.value);
 }
+
+/// List Edit Dialog for editing list-type content
+class _ListEditDialog extends StatefulWidget {
+  final String title;
+  final List<String> items;
+  final Color accentColor;
+  final String sectionKey;
+  final Function(List<String>) onSave;
+
+  const _ListEditDialog({
+    required this.title,
+    required this.items,
+    required this.accentColor,
+    required this.sectionKey,
+    required this.onSave,
+  });
+
+  @override
+  State<_ListEditDialog> createState() => _ListEditDialogState();
+}
+
+class _ListEditDialogState extends State<_ListEditDialog> {
+  late List<String> _items;
+  final TextEditingController _newItemController = TextEditingController();
+  final FocusNode _newItemFocus = FocusNode();
+  bool _isAddingNew = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _items = List.from(widget.items);
+    if (_items.isEmpty) {
+      _items.add('');
+      _isAddingNew = true;
+    }
+  }
+
+  @override
+  void dispose() {
+    _newItemController.dispose();
+    _newItemFocus.dispose();
+    super.dispose();
+  }
+
+  void _addNewItem() {
+    if (_newItemController.text.trim().isNotEmpty) {
+      setState(() {
+        _items.add(_newItemController.text.trim());
+        _newItemController.clear();
+        _isAddingNew = false;
+      });
+    }
+  }
+
+  void _removeItem(int index) {
+    setState(() {
+      _items.removeAt(index);
+    });
+  }
+
+  void _updateItem(int index, String value) {
+    setState(() {
+      _items[index] = value;
+    });
+  }
+
+  void _showAddField() {
+    setState(() {
+      _isAddingNew = true;
+    });
+    Future.delayed(const Duration(milliseconds: 100), () {
+      _newItemFocus.requestFocus();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isMedication = widget.sectionKey.toLowerCase().contains('prescription') ||
+                         widget.sectionKey.toLowerCase().contains('medication');
+    
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.all(16),
+      child: Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.85,
+        ),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.15),
+              blurRadius: 30,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    widget.accentColor.withOpacity(0.15),
+                    widget.accentColor.withOpacity(0.05),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: widget.accentColor.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      isMedication ? Icons.medication_rounded : Icons.list_rounded,
+                      color: widget.accentColor,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Edit ${widget.title}',
+                          style: GoogleFonts.poppins(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.darkSlate,
+                          ),
+                        ),
+                        Text(
+                          '${_items.where((i) => i.isNotEmpty).length} items',
+                          style: GoogleFonts.poppins(
+                            fontSize: 13,
+                            color: AppTheme.mediumGray,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.close_rounded,
+                        color: AppTheme.mediumGray,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // List items
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    // Existing items
+                    ..._items.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final item = entry.value;
+                      return _buildListItem(index, item, isMedication);
+                    }),
+                    // Add new item field
+                    if (_isAddingNew)
+                      _buildNewItemField(isMedication)
+                    else
+                      _buildAddButton(),
+                  ],
+                ),
+              ),
+            ),
+            // Actions
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppTheme.lightGray.withOpacity(0.3),
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(24),
+                  bottomRight: Radius.circular(24),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: AppTheme.mediumGray.withOpacity(0.2),
+                          ),
+                        ),
+                        child: Center(
+                          child: Text(
+                            'Cancel',
+                            style: GoogleFonts.poppins(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.mediumGray,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: GestureDetector(
+                      onTap: () {
+                        // Filter out empty items
+                        final validItems = _items.where((i) => i.trim().isNotEmpty).toList();
+                        widget.onSave(validItems);
+                        Navigator.pop(context);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [widget.accentColor, widget.accentColor.withOpacity(0.8)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: [
+                            BoxShadow(
+                              color: widget.accentColor.withOpacity(0.3),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Center(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.save_rounded, color: Colors.white, size: 20),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Save Changes',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildListItem(int index, String item, bool isMedication) {
+    final controller = TextEditingController(text: item);
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: widget.accentColor.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: widget.accentColor.withOpacity(0.15)),
+      ),
+      child: Row(
+        children: [
+          // Drag handle / bullet indicator
+          Container(
+            padding: const EdgeInsets.all(14),
+            child: Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: widget.accentColor.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Center(
+                child: Icon(
+                  isMedication ? Icons.medication_rounded : Icons.circle,
+                  color: widget.accentColor,
+                  size: isMedication ? 18 : 10,
+                ),
+              ),
+            ),
+          ),
+          // Text field
+          Expanded(
+            child: TextField(
+              controller: controller,
+              onChanged: (value) => _updateItem(index, value),
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: AppTheme.darkSlate,
+              ),
+              decoration: InputDecoration(
+                hintText: isMedication 
+                    ? 'e.g., Paracetamol 500mg - 1 tablet every 6 hours'
+                    : 'Enter item...',
+                hintStyle: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: AppTheme.mediumGray.withOpacity(0.5),
+                ),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+            ),
+          ),
+          // Delete button
+          GestureDetector(
+            onTap: () => _removeItem(index),
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              child: Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: AppTheme.accentCoral.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.delete_outline_rounded,
+                  color: AppTheme.accentCoral,
+                  size: 18,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNewItemField(bool isMedication) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: AppTheme.successGreen.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.successGreen.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          // Plus icon
+          Container(
+            padding: const EdgeInsets.all(14),
+            child: Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: AppTheme.successGreen.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.add_rounded,
+                color: AppTheme.successGreen,
+                size: 20,
+              ),
+            ),
+          ),
+          // Text field
+          Expanded(
+            child: TextField(
+              controller: _newItemController,
+              focusNode: _newItemFocus,
+              onSubmitted: (_) => _addNewItem(),
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: AppTheme.darkSlate,
+              ),
+              decoration: InputDecoration(
+                hintText: isMedication 
+                    ? 'Add medication with dosage...'
+                    : 'Add new item...',
+                hintStyle: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: AppTheme.mediumGray.withOpacity(0.5),
+                ),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+            ),
+          ),
+          // Add button
+          GestureDetector(
+            onTap: _addNewItem,
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              child: Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: AppTheme.successGreen,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.check_rounded,
+                  color: Colors.white,
+                  size: 18,
+                ),
+              ),
+            ),
+          ),
+          // Cancel button
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _isAddingNew = false;
+                _newItemController.clear();
+              });
+            },
+            child: Container(
+              padding: const EdgeInsets.only(right: 14),
+              child: Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: AppTheme.mediumGray.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.close_rounded,
+                  color: AppTheme.mediumGray,
+                  size: 18,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAddButton() {
+    return GestureDetector(
+      onTap: _showAddField,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          color: widget.accentColor.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: widget.accentColor.withOpacity(0.2),
+            style: BorderStyle.solid,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: widget.accentColor.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.add_rounded,
+                color: widget.accentColor,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              'Add New Item',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: widget.accentColor,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+

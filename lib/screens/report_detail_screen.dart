@@ -1,8 +1,10 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../models/consultation.dart';
+import '../models/report.dart';
 import '../providers/consultation_provider.dart';
 
 class ReportDetailScreen extends StatefulWidget {
@@ -140,6 +142,54 @@ class _ReportDetailScreenState extends State<ReportDetailScreen>
     );
   }
 
+  // Color palette for sections
+  final List<Color> _sectionColors = [
+    AppTheme.accentCoral,
+    AppTheme.warningAmber,
+    AppTheme.primarySkyBlue,
+    AppTheme.successGreen,
+    AppTheme.deepSkyBlue,
+    const Color(0xFF8B5CF6), // Purple
+    const Color(0xFFEC4899), // Pink
+    const Color(0xFF14B8A6), // Teal
+    const Color(0xFFF97316), // Orange
+    const Color(0xFF6366F1), // Indigo
+  ];
+
+  // Icon mapping for common sections
+  final Map<String, IconData> _sectionIcons = {
+    'chief_complaint': Icons.report_problem_rounded,
+    'symptoms': Icons.medical_information_rounded,
+    'diagnosis': Icons.health_and_safety_rounded,
+    'assessment': Icons.health_and_safety_rounded,
+    'prescription': Icons.medication_rounded,
+    'medications': Icons.medication_rounded,
+    'additional_notes': Icons.note_alt_rounded,
+    'notes': Icons.note_alt_rounded,
+    'history': Icons.history_rounded,
+    'allergies': Icons.warning_rounded,
+    'vitals': Icons.monitor_heart_rounded,
+    'physical_exam': Icons.person_search_rounded,
+    'treatment_plan': Icons.healing_rounded,
+    'plan': Icons.healing_rounded,
+    'follow_up': Icons.event_rounded,
+    'summary': Icons.summarize_rounded,
+  };
+
+  Color _getSectionColor(int index) {
+    return _sectionColors[index % _sectionColors.length];
+  }
+
+  IconData _getSectionIcon(String key) {
+    final lowerKey = key.toLowerCase();
+    for (final entry in _sectionIcons.entries) {
+      if (lowerKey.contains(entry.key)) {
+        return entry.value;
+      }
+    }
+    return Icons.article_rounded;
+  }
+
   Widget _buildContent() {
     final report = _consultation.report;
     
@@ -160,53 +210,263 @@ class _ReportDetailScreenState extends State<ReportDetailScreen>
               _consultation.transcription!,
               AppTheme.mediumGray,
             ),
-          if (report != null) ...[
+          // Dynamic report sections
+          if (report != null && report.sections.isNotEmpty) ...[
+            ...report.sectionKeys.asMap().entries.map((entry) {
+              final index = entry.key;
+              final key = entry.value;
+              final content = report.sections[key] ?? '';
+              final displayName = Report.keyToDisplayName(key);
+              final color = _getSectionColor(index);
+              final icon = _getSectionIcon(key);
+              
+              return Padding(
+                padding: const EdgeInsets.only(top: 16),
+                child: _buildDynamicSectionCard(
+                  key,
+                  displayName,
+                  icon,
+                  content,
+                  color,
+                ),
+              );
+            }),
+          ] else if (report != null) ...[
+            // Fallback to legacy fields if sections is empty
             const SizedBox(height: 16),
-            // Chief complaint
-            _buildSectionCard(
-              'Chief Complaint',
-              Icons.report_problem_rounded,
-              report.chiefComplaint,
-              AppTheme.accentCoral,
-            ),
-            const SizedBox(height: 16),
-            // Symptoms
-            _buildSectionCard(
-              'Symptoms',
-              Icons.medical_information_rounded,
-              report.symptoms,
-              AppTheme.warningAmber,
-            ),
-            const SizedBox(height: 16),
-            // Diagnosis
-            _buildSectionCard(
-              'Diagnosis',
-              Icons.health_and_safety_rounded,
-              report.diagnosis,
-              AppTheme.primaryTeal,
-            ),
-            const SizedBox(height: 16),
-            // Prescription
-            _buildSectionCard(
-              'Prescription',
-              Icons.medication_rounded,
-              report.prescription,
-              AppTheme.successGreen,
-            ),
-            const SizedBox(height: 16),
-            // Notes
-            _buildSectionCard(
-              'Additional Notes',
-              Icons.note_alt_rounded,
-              report.additionalNotes,
-              AppTheme.deepTeal,
-            ),
+            if (report.chiefComplaint.isNotEmpty)
+              _buildSectionCard(
+                'Chief Complaint',
+                Icons.report_problem_rounded,
+                report.chiefComplaint,
+                AppTheme.accentCoral,
+              ),
+            if (report.symptoms.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              _buildSectionCard(
+                'Symptoms',
+                Icons.medical_information_rounded,
+                report.symptoms,
+                AppTheme.warningAmber,
+              ),
+            ],
+            if (report.diagnosis.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              _buildSectionCard(
+                'Diagnosis',
+                Icons.health_and_safety_rounded,
+                report.diagnosis,
+                AppTheme.primaryTeal,
+              ),
+            ],
+            if (report.prescription.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              _buildSectionCard(
+                'Prescription',
+                Icons.medication_rounded,
+                report.prescription,
+                AppTheme.successGreen,
+              ),
+            ],
+            if (report.additionalNotes.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              _buildSectionCard(
+                'Additional Notes',
+                Icons.note_alt_rounded,
+                report.additionalNotes,
+                AppTheme.deepTeal,
+              ),
+            ],
           ] else
             _buildNoReportCard(),
           const SizedBox(height: 100),
         ],
       ),
     );
+  }
+
+  /// Build dynamic section card - simple and clean
+  Widget _buildDynamicSectionCard(
+      String sectionKey, String title, IconData icon, String content, Color accentColor) {
+    
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Simple header row
+          Row(
+            children: [
+              Icon(icon, color: accentColor, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  title,
+                  style: GoogleFonts.poppins(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.darkSlate,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Simple content
+          _buildSimpleContent(content),
+        ],
+      ),
+    );
+  }
+
+  /// Build simple, clean content display
+  Widget _buildSimpleContent(String content) {
+    if (content.isEmpty || content.trim().isEmpty || content.trim() == 'Not documented') {
+      return Text(
+        'Not documented',
+        style: GoogleFonts.poppins(
+          fontSize: 14,
+          color: AppTheme.mediumGray,
+          fontStyle: FontStyle.italic,
+        ),
+      );
+    }
+
+    // Clean content
+    String cleanContent = content
+        .replaceAll('\\n', '\n')
+        .replaceAll('\\"', '"')
+        .replaceAll('\\\\', '\\')
+        .replaceAll('**', '')
+        .replaceAll('###', '')
+        .replaceAll('##', '')
+        .replaceAll('#', '')
+        .replaceAll('```', '')
+        .trim();
+
+    // Try to parse JSON
+    if (cleanContent.startsWith('{') || cleanContent.startsWith('[')) {
+      try {
+        final parsed = jsonDecode(cleanContent);
+        cleanContent = _jsonToPlainText(parsed);
+      } catch (e) {
+        // Not valid JSON
+      }
+    }
+
+    // Check if content has bullet points
+    final lines = cleanContent.split('\n').where((l) => l.trim().isNotEmpty).toList();
+    final hasBullets = lines.any((l) => 
+        l.trim().startsWith('•') || 
+        l.trim().startsWith('-') || 
+        l.trim().startsWith('*') ||
+        RegExp(r'^\d+\.').hasMatch(l.trim()));
+
+    if (hasBullets || lines.length > 1) {
+      // Show as bullet list
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: lines.map((line) {
+          line = line.trim();
+          // Remove bullet prefix
+          if (line.startsWith('•') || line.startsWith('-') || line.startsWith('*')) {
+            line = line.substring(1).trim();
+          } else if (RegExp(r'^\d+\.\s*').hasMatch(line)) {
+            line = line.replaceFirst(RegExp(r'^\d+\.\s*'), '');
+          }
+          
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  margin: const EdgeInsets.only(top: 7, right: 10),
+                  width: 5,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: AppTheme.mediumGray,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    line,
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      color: AppTheme.darkSlate,
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      );
+    }
+
+    // Single text content
+    return Text(
+      cleanContent,
+      style: GoogleFonts.poppins(
+        fontSize: 14,
+        color: AppTheme.darkSlate,
+        height: 1.5,
+      ),
+    );
+  }
+
+  /// Convert JSON to plain text
+  String _jsonToPlainText(dynamic json) {
+    final lines = <String>[];
+    
+    if (json is Map) {
+      json.forEach((key, value) {
+        if (value == null || value.toString().isEmpty || value.toString() == 'Not documented') return;
+        
+        if (value is String) {
+          if (value.contains('\n')) {
+            lines.addAll(value.split('\n').where((l) => l.trim().isNotEmpty));
+          } else {
+            lines.add('• $value');
+          }
+        } else if (value is List) {
+          for (var item in value) {
+            if (item is String && item.isNotEmpty) {
+              lines.add('• $item');
+            } else if (item is Map) {
+              final parts = item.entries
+                  .where((e) => e.value != null && e.value.toString().isNotEmpty)
+                  .map((e) => '${e.key}: ${e.value}')
+                  .join(', ');
+              if (parts.isNotEmpty) lines.add('• $parts');
+            }
+          }
+        } else {
+          lines.add('• $value');
+        }
+      });
+    } else if (json is List) {
+      for (var item in json) {
+        if (item is String && item.isNotEmpty) {
+          lines.add('• $item');
+        }
+      }
+    }
+    
+    return lines.join('\n');
   }
 
   Widget _buildPatientHeader() {

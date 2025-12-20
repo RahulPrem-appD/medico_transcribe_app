@@ -278,26 +278,6 @@ class BuiltInTemplates {
       ),
     ),
 
-    // SOAP Note - standard medical format
-    ReportTemplate(
-      id: 'soap',
-      name: 'SOAP Note',
-      description: 'Standard Subjective-Objective-Assessment-Plan format',
-      icon: 'assignment',
-      isBuiltIn: true,
-      config: ReportTemplateConfig(
-        sections: [
-          ReportSection(id: 'subjective', name: 'Subjective', description: 'Patient reported symptoms and history', order: 1),
-          ReportSection(id: 'objective', name: 'Objective', description: 'Physical exam and vital signs', order: 2),
-          ReportSection(id: 'assessment', name: 'Assessment', description: 'Diagnosis and clinical impression', order: 3),
-          ReportSection(id: 'plan', name: 'Plan', description: 'Treatment plan and follow-up', order: 4),
-        ],
-        format: 'detailed',
-        tone: 'formal',
-        customInstructions: 'Follow standard SOAP note format strictly. Be thorough in each section.',
-      ),
-    ),
-
     // Comprehensive - full workup
     ReportTemplate(
       id: 'comprehensive',

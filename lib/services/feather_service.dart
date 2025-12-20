@@ -18,13 +18,19 @@ class FeatherService {
 
 Your task is to analyze the transcription and extract structured medical information in a professional clinical format.
 
-Always respond in valid JSON format with the following structure:
+CRITICAL RESPONSE FORMAT:
+- Respond with a valid JSON object with these exact keys
+- Each value MUST be a simple STRING (not nested objects or arrays)
+- Use plain text with line breaks for lists, NOT JSON arrays
+- For multiple items, use bullet points like "• Item 1\\n• Item 2"
+
+Respond with this exact JSON structure:
 {
     "chief_complaint": "Primary reason for the visit in 1-2 sentences",
-    "symptoms": "Detailed symptoms as bullet points, including duration, severity, and associated factors",
+    "symptoms": "• Symptom 1 with details\\n• Symptom 2 with details",
     "diagnosis": "Clinical assessment/diagnosis based on the presented symptoms",
-    "prescription": "Medications with dosage, frequency, and duration as numbered list",
-    "additional_notes": "Follow-up instructions, lifestyle modifications, red flags to watch for, and when to return"
+    "prescription": "• Medication 1: dosage, frequency, duration\\n• Medication 2: dosage, frequency, duration",
+    "additional_notes": "• Follow-up instructions\\n• Lifestyle modifications\\n• Red flags to watch for"
 }
 
 Clinical Guidelines:
@@ -78,11 +84,23 @@ Clinical Guidelines:
 
 Your task is to analyze the transcription and extract structured medical information based on the requested sections.
 
-IMPORTANT: Always respond in valid JSON format with EXACTLY these keys:
-$jsonExample
+CRITICAL RESPONSE FORMAT:
+- Respond with a valid JSON object with EXACTLY these keys: $jsonExample
+- Each value MUST be a simple STRING (not nested objects or arrays)
+- Use plain text with line breaks for lists, NOT JSON arrays
+- For multiple items, use bullet points like "• Item 1\\n• Item 2"
+- Do NOT use nested JSON structures within values
 
 FORMAT STYLE: $formatInstructions
 LANGUAGE TONE: $toneInstructions
+
+EXAMPLE OUTPUT FORMAT:
+{
+  "chief_complaint": "Patient presents with headache and fever for 3 days",
+  "symptoms": "• Headache - throbbing, frontal\\n• Fever - 101°F\\n• Fatigue",
+  "diagnosis": "Viral upper respiratory infection",
+  "prescription": "• Paracetamol 500mg - 1 tablet every 6 hours for fever\\n• Rest and hydration advised"
+}
 
 Clinical Guidelines:
 - Use standard medical terminology appropriately based on the tone specified
