@@ -4,6 +4,7 @@ import '../theme/app_theme.dart';
 import '../widgets/elephant_logo.dart';
 import 'language_selection_screen.dart';
 import 'reports_history_screen.dart';
+import 'template_manager_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -206,6 +207,7 @@ class _HomeScreenState extends State<HomeScreen>
       children: [
         // New Consultation Card
         Expanded(
+          flex: 2,
           child: _ActionCard(
             title: 'New Consultation',
             subtitle: 'Start recording a patient consultation',
@@ -245,47 +247,64 @@ class _HomeScreenState extends State<HomeScreen>
             },
           ),
         ),
-        const SizedBox(height: 20),
-        // Browse Reports Card
+        const SizedBox(height: 16),
+        // Bottom row with two cards
         Expanded(
-          child: _ActionCard(
-            title: 'Browse Reports',
-            subtitle: 'View and manage previous consultations',
-            icon: Icons.folder_open_rounded,
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Colors.white, Colors.grey.shade50],
-            ),
-            iconBackground: AppTheme.paleBlue,
-            textColor: AppTheme.darkSlate,
-            borderColor: AppTheme.lightSkyBlue.withOpacity(0.5),
-            onTap: () {
-              Navigator.push(
-                context,
-                PageRouteBuilder(
-                  pageBuilder: (context, animation, secondaryAnimation) =>
-                      const ReportsHistoryScreen(),
-                  transitionsBuilder:
-                      (context, animation, secondaryAnimation, child) {
-                    return FadeTransition(
-                      opacity: animation,
-                      child: SlideTransition(
-                        position: Tween<Offset>(
-                          begin: const Offset(0.1, 0),
-                          end: Offset.zero,
-                        ).animate(CurvedAnimation(
-                          parent: animation,
-                          curve: Curves.easeOutCubic,
-                        )),
-                        child: child,
+          flex: 1,
+          child: Row(
+            children: [
+              // Browse Reports Card
+              Expanded(
+                child: _SmallActionCard(
+                  title: 'Reports',
+                  icon: Icons.folder_open_rounded,
+                  color: AppTheme.successGreen,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      PageRouteBuilder(
+                        pageBuilder: (context, animation, secondaryAnimation) =>
+                            const ReportsHistoryScreen(),
+                        transitionsBuilder:
+                            (context, animation, secondaryAnimation, child) {
+                          return FadeTransition(
+                            opacity: animation,
+                            child: child,
+                          );
+                        },
+                        transitionDuration: const Duration(milliseconds: 300),
                       ),
                     );
                   },
-                  transitionDuration: const Duration(milliseconds: 400),
                 ),
-              );
-            },
+              ),
+              const SizedBox(width: 16),
+              // Templates Card
+              Expanded(
+                child: _SmallActionCard(
+                  title: 'Templates',
+                  icon: Icons.description_outlined,
+                  color: AppTheme.warningAmber,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      PageRouteBuilder(
+                        pageBuilder: (context, animation, secondaryAnimation) =>
+                            const TemplateManagerScreen(),
+                        transitionsBuilder:
+                            (context, animation, secondaryAnimation, child) {
+                          return FadeTransition(
+                            opacity: animation,
+                            child: child,
+                          );
+                        },
+                        transitionDuration: const Duration(milliseconds: 300),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -439,6 +458,86 @@ class _ActionCardState extends State<_ActionCard> {
                       ? AppTheme.primarySkyBlue
                       : Colors.white,
                   size: 18,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Small action card for secondary actions
+class _SmallActionCard extends StatefulWidget {
+  final String title;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _SmallActionCard({
+    required this.title,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  State<_SmallActionCard> createState() => _SmallActionCardState();
+}
+
+class _SmallActionCardState extends State<_SmallActionCard> {
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _isPressed = true),
+      onTapUp: (_) => setState(() => _isPressed = false),
+      onTapCancel: () => setState(() => _isPressed = false),
+      onTap: widget.onTap,
+      child: AnimatedScale(
+        scale: _isPressed ? 0.97 : 1.0,
+        duration: const Duration(milliseconds: 150),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: widget.color.withOpacity(0.2),
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: widget.color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(
+                  widget.icon,
+                  color: widget.color,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                widget.title,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.darkSlate,
                 ),
               ),
             ],
