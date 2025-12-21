@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/elephant_logo.dart';
 import '../services/database_service.dart';
+import '../providers/theme_provider.dart';
 import 'language_selection_screen.dart';
 import 'reports_history_screen.dart';
 import 'template_manager_screen.dart';
 import 'notes_screen.dart';
+import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -144,20 +147,26 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildBackground(Size size) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFFF8FBFF), Color(0xFFEDF5FF), Color(0xFFF0F4F8)],
-          stops: [0.0, 0.5, 1.0],
+      decoration: BoxDecoration(
+        gradient: AppTheme.getBackgroundGradient(context),
+      ),
+      child: CustomPaint(
+        size: size,
+        painter: _GridPatternPainter(
+          color: themeProvider.primaryColor.withOpacity(0.03),
         ),
       ),
-      child: CustomPaint(size: size, painter: _GridPatternPainter()),
     );
   }
 
   Widget _buildFloatingOrbs(Size size) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final primaryColor = themeProvider.primaryColor;
+    final secondaryColor = themeProvider.secondaryColor;
+
     return IgnorePointer(
       // IMPORTANT: Prevents orbs from blocking touch events
       child: AnimatedBuilder(
@@ -176,8 +185,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     shape: BoxShape.circle,
                     gradient: RadialGradient(
                       colors: [
-                        AppTheme.primarySkyBlue.withOpacity(0.15),
-                        AppTheme.primarySkyBlue.withOpacity(0.0),
+                        primaryColor.withOpacity(0.15),
+                        primaryColor.withOpacity(0.0),
                       ],
                     ),
                   ),
@@ -194,8 +203,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     shape: BoxShape.circle,
                     gradient: RadialGradient(
                       colors: [
-                        AppTheme.deepSkyBlue.withOpacity(0.1),
-                        AppTheme.deepSkyBlue.withOpacity(0.0),
+                        secondaryColor.withOpacity(0.1),
+                        secondaryColor.withOpacity(0.0),
                       ],
                     ),
                   ),
@@ -209,6 +218,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildTopSection() {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final primaryColor = themeProvider.primaryColor;
+
     return FadeTransition(
       opacity: _fadeAnimation,
       child: Padding(
@@ -221,11 +233,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               child: Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppTheme.getSurfaceColor(context),
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: AppTheme.primarySkyBlue.withOpacity(0.15),
+                      color: primaryColor.withOpacity(0.15),
                       blurRadius: 20,
                       offset: const Offset(0, 4),
                     ),
@@ -244,7 +256,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     style: GoogleFonts.outfit(
                       fontSize: 22,
                       fontWeight: FontWeight.w700,
-                      color: AppTheme.darkSlate,
+                      color: AppTheme.getTextColor(context),
                       letterSpacing: -0.5,
                     ),
                   ),
@@ -278,24 +290,34 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 ],
               ),
             ),
-            // Settings/Profile button
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
-                    blurRadius: 10,
-                    offset: const Offset(0, 2),
+            // Settings button - navigates to settings screen
+            GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const SettingsScreen(),
                   ),
-                ],
-              ),
-              child: Icon(
-                Icons.tune_rounded,
-                color: AppTheme.mediumGray,
-                size: 22,
+                );
+              },
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppTheme.getSurfaceColor(context),
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  Icons.settings_rounded,
+                  color: AppTheme.getSecondaryTextColor(context),
+                  size: 22,
+                ),
               ),
             ),
           ],
@@ -369,7 +391,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               style: GoogleFonts.poppins(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
-                color: AppTheme.mediumGray,
+                color: AppTheme.getSecondaryTextColor(context),
               ),
             ),
           ],
@@ -380,7 +402,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           style: GoogleFonts.outfit(
             fontSize: 34,
             fontWeight: FontWeight.w700,
-            color: AppTheme.darkSlate,
+            color: AppTheme.getTextColor(context),
             height: 1.1,
           ),
         ),
@@ -389,7 +411,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           'Ready to capture your consultations',
           style: GoogleFonts.poppins(
             fontSize: 15,
-            color: AppTheme.mediumGray,
+            color: AppTheme.getSecondaryTextColor(context),
             fontWeight: FontWeight.w400,
           ),
         ),
@@ -424,96 +446,104 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ),
         );
       },
-      child: AnimatedBuilder(
-        animation: _pulseAnimation,
-        builder: (context, child) {
-          return Transform.scale(
-            scale: _pulseAnimation.value,
-            child: Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    AppTheme.primarySkyBlue.withOpacity(0.15),
-                    AppTheme.deepSkyBlue.withOpacity(0.08),
-                  ],
-                ),
-              ),
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      AppTheme.primarySkyBlue.withOpacity(0.25),
-                      AppTheme.deepSkyBlue.withOpacity(0.15),
-                    ],
-                  ),
-                ),
+      child: Consumer<ThemeProvider>(
+        builder: (context, themeProvider, child) {
+          final primaryColor = themeProvider.primaryColor;
+          final secondaryColor = themeProvider.secondaryColor;
+
+          return AnimatedBuilder(
+            animation: _pulseAnimation,
+            builder: (context, child) {
+              return Transform.scale(
+                scale: _pulseAnimation.value,
                 child: Container(
-                  width: 160,
-                  height: 160,
+                  padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    gradient: const LinearGradient(
+                    gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
-                        Color(0xFF5B9EE1),
-                        AppTheme.primarySkyBlue,
-                        AppTheme.deepSkyBlue,
+                        primaryColor.withOpacity(0.15),
+                        secondaryColor.withOpacity(0.08),
                       ],
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppTheme.primarySkyBlue.withOpacity(0.4),
-                        blurRadius: 30,
-                        offset: const Offset(0, 15),
-                        spreadRadius: 0,
-                      ),
-                      BoxShadow(
-                        color: AppTheme.deepSkyBlue.withOpacity(0.2),
-                        blurRadius: 60,
-                        offset: const Offset(0, 25),
-                        spreadRadius: 10,
-                      ),
-                    ],
                   ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.mic_rounded,
-                          color: Colors.white,
-                          size: 36,
-                        ),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          primaryColor.withOpacity(0.25),
+                          secondaryColor.withOpacity(0.15),
+                        ],
                       ),
-                      const SizedBox(height: 10),
-                      Text(
-                        'START',
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                          letterSpacing: 2,
+                    ),
+                    child: Container(
+                      width: 160,
+                      height: 160,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Color.lerp(primaryColor, Colors.white, 0.2)!,
+                            primaryColor,
+                            secondaryColor,
+                          ],
                         ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: primaryColor.withOpacity(0.4),
+                            blurRadius: 30,
+                            offset: const Offset(0, 15),
+                            spreadRadius: 0,
+                          ),
+                          BoxShadow(
+                            color: secondaryColor.withOpacity(0.2),
+                            blurRadius: 60,
+                            offset: const Offset(0, 25),
+                            spreadRadius: 10,
+                          ),
+                        ],
                       ),
-                    ],
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.mic_rounded,
+                              color: Colors.white,
+                              size: 36,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          const SizedBox(height: 10),
+                          Text(
+                            'START',
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                              letterSpacing: 2,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
+              );
+            },
           );
         },
       ),
@@ -579,10 +609,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildStatsBar() {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.getSurfaceColor(context),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
@@ -599,39 +631,47 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             'Today',
             _todayCount.toString(),
             Icons.calendar_today_rounded,
+            themeProvider.primaryColor,
           ),
           _buildStatDivider(),
           _buildStatItem(
             'This Week',
             _weekCount.toString(),
             Icons.date_range_rounded,
+            themeProvider.primaryColor,
           ),
           _buildStatDivider(),
           _buildStatItem(
             'Total',
             _totalCount.toString(),
             Icons.bar_chart_rounded,
+            themeProvider.primaryColor,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildStatItem(String label, String value, IconData icon) {
+  Widget _buildStatItem(
+    String label,
+    String value,
+    IconData icon,
+    Color accentColor,
+  ) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 14, color: AppTheme.primarySkyBlue),
+            Icon(icon, size: 14, color: accentColor),
             const SizedBox(width: 4),
             Text(
               value,
               style: GoogleFonts.outfit(
                 fontSize: 22,
                 fontWeight: FontWeight.w700,
-                color: AppTheme.darkSlate,
+                color: AppTheme.getTextColor(context),
               ),
             ),
           ],
@@ -641,7 +681,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           label,
           style: GoogleFonts.poppins(
             fontSize: 11,
-            color: AppTheme.mediumGray,
+            color: AppTheme.getSecondaryTextColor(context),
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -650,7 +690,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildStatDivider() {
-    return Container(width: 1, height: 30, color: AppTheme.lightGray);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      width: 1,
+      height: 30,
+      color: isDark ? AppTheme.darkCard : AppTheme.lightGray,
+    );
   }
 }
 
@@ -706,7 +751,7 @@ class _QuickActionTileState extends State<_QuickActionTile> {
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppTheme.getSurfaceColor(context),
               borderRadius: BorderRadius.circular(18),
               border: Border.all(
                 color: effectiveColor.withOpacity(0.15),
@@ -738,7 +783,7 @@ class _QuickActionTileState extends State<_QuickActionTile> {
                   style: GoogleFonts.poppins(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: AppTheme.darkSlate,
+                    color: AppTheme.getTextColor(context),
                   ),
                 ),
                 const SizedBox(height: 1),
@@ -746,7 +791,7 @@ class _QuickActionTileState extends State<_QuickActionTile> {
                   widget.sublabel,
                   style: GoogleFonts.poppins(
                     fontSize: 10,
-                    color: AppTheme.mediumGray,
+                    color: AppTheme.getSecondaryTextColor(context),
                     fontWeight: FontWeight.w400,
                   ),
                 ),
@@ -761,10 +806,14 @@ class _QuickActionTileState extends State<_QuickActionTile> {
 
 /// Custom painter for subtle grid pattern
 class _GridPatternPainter extends CustomPainter {
+  final Color color;
+
+  _GridPatternPainter({required this.color});
+
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = AppTheme.primarySkyBlue.withOpacity(0.03)
+      ..color = color
       ..strokeWidth = 1;
 
     const spacing = 30.0;
@@ -781,5 +830,6 @@ class _GridPatternPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _GridPatternPainter oldDelegate) =>
+      oldDelegate.color != color;
 }

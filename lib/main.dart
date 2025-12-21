@@ -6,22 +6,17 @@ import 'screens/home_screen.dart';
 import 'screens/splash_screen.dart';
 import 'services/consultation_service.dart';
 import 'providers/consultation_provider.dart';
+import 'providers/theme_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Set system UI overlay style
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.dark,
-      systemNavigationBarColor: Colors.white,
-      systemNavigationBarIconBrightness: Brightness.dark,
-    ),
-  );
-
   // Initialize services
   final consultationService = ConsultationService();
+  final themeProvider = ThemeProvider();
+
+  // Initialize theme preferences
+  await themeProvider.initialize();
 
   runApp(
     MultiProvider(
@@ -29,6 +24,7 @@ void main() async {
         ChangeNotifierProvider(
           create: (_) => ConsultationProvider(consultationService),
         ),
+        ChangeNotifierProvider.value(value: themeProvider),
       ],
       child: const DoctorScribeApp(),
     ),
@@ -91,31 +87,77 @@ class _DoctorScribeAppState extends State<DoctorScribeApp> {
     );
   }
 
+  void _updateSystemUI(bool isDark) {
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        systemNavigationBarColor: isDark
+            ? AppTheme.darkBackground
+            : Colors.white,
+        systemNavigationBarIconBrightness: isDark
+            ? Brightness.light
+            : Brightness.dark,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Doctor Scribe',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.theme,
-      navigatorKey: _navigatorKey,
-      home: _buildHome(),
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        // Update system UI based on theme
+        final isDark =
+            themeProvider.themeMode == AppThemeMode.dark ||
+            (themeProvider.themeMode == AppThemeMode.system &&
+                MediaQuery.of(context).platformBrightness == Brightness.dark);
+
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _updateSystemUI(isDark);
+        });
+
+        return MaterialApp(
+          title: 'Doctor Scribe',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.lightTheme(
+            primaryColor: themeProvider.primaryColor,
+            secondaryColor: themeProvider.secondaryColor,
+          ),
+          darkTheme: AppTheme.darkTheme(
+            primaryColor: themeProvider.primaryColor,
+            secondaryColor: themeProvider.secondaryColor,
+          ),
+          themeMode: themeProvider.materialThemeMode,
+          navigatorKey: _navigatorKey,
+          home: _buildHome(),
+        );
+      },
     );
   }
 
   Widget _buildHome() {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDark = themeProvider.themeMode == AppThemeMode.dark;
+
     if (_initError != null) {
       return Scaffold(
         body: Container(
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                AppTheme.softSkyBg,
-                AppTheme.paleBlue.withOpacity(0.5),
-                Colors.white,
-              ],
-            ),
+            gradient: isDark
+                ? LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [AppTheme.darkBackground, AppTheme.darkSurface],
+                  )
+                : LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      AppTheme.softSkyBg,
+                      AppTheme.paleBlue.withOpacity(0.5),
+                      Colors.white,
+                    ],
+                  ),
           ),
           child: Center(
             child: Padding(
@@ -136,20 +178,22 @@ class _DoctorScribeAppState extends State<DoctorScribeApp> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  const Text(
+                  Text(
                     'Initialization Error',
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
-                      color: AppTheme.darkSlate,
+                      color: isDark ? AppTheme.darkText : AppTheme.darkSlate,
                     ),
                   ),
                   const SizedBox(height: 12),
                   Text(
                     _initError!,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: AppTheme.mediumGray,
+                    style: TextStyle(
+                      color: isDark
+                          ? AppTheme.darkTextSecondary
+                          : AppTheme.mediumGray,
                       fontSize: 14,
                     ),
                   ),
@@ -162,7 +206,7 @@ class _DoctorScribeAppState extends State<DoctorScribeApp> {
                       });
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primarySkyBlue,
+                      backgroundColor: themeProvider.primaryColor,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 32,
                         vertical: 16,
@@ -182,15 +226,21 @@ class _DoctorScribeAppState extends State<DoctorScribeApp> {
       return Scaffold(
         body: Container(
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                AppTheme.softSkyBg,
-                AppTheme.paleBlue.withOpacity(0.5),
-                Colors.white,
-              ],
-            ),
+            gradient: isDark
+                ? LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [AppTheme.darkBackground, AppTheme.darkSurface],
+                  )
+                : LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      AppTheme.softSkyBg,
+                      AppTheme.paleBlue.withOpacity(0.5),
+                      Colors.white,
+                    ],
+                  ),
           ),
           child: Center(
             child: Column(
@@ -198,13 +248,18 @@ class _DoctorScribeAppState extends State<DoctorScribeApp> {
               children: [
                 CircularProgressIndicator(
                   valueColor: AlwaysStoppedAnimation<Color>(
-                    AppTheme.primarySkyBlue,
+                    themeProvider.primaryColor,
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text(
+                Text(
                   'Initializing...',
-                  style: TextStyle(color: AppTheme.mediumGray, fontSize: 16),
+                  style: TextStyle(
+                    color: isDark
+                        ? AppTheme.darkTextSecondary
+                        : AppTheme.mediumGray,
+                    fontSize: 16,
+                  ),
                 ),
               ],
             ),
