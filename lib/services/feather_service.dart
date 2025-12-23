@@ -62,7 +62,12 @@ Clinical Guidelines:
 - Include relevant negatives when mentioned (e.g., "no fever", "denies chest pain")
 - Format prescriptions clearly: Drug name, strength, route, frequency, duration
 - Note any allergies or contraindications mentioned
-- Include vital signs if mentioned in the conversation''';
+- Include vital signs if mentioned in the conversation
+
+PRIORITY DIRECTIVE:
+- If additional instructions are provided by the doctor in the user prompt, follow them EXACTLY
+- Doctor's instructions override default guidelines when there's a conflict
+- Ensure all requested modifications, additions, or changes are incorporated''';
     }
 
     // Build dynamic JSON structure from sections
@@ -141,7 +146,13 @@ Clinical Guidelines:
 - Format prescriptions clearly when applicable: Drug name, strength, route, frequency, duration
 - Note any allergies or contraindications mentioned
 - Include vital signs if mentioned in the conversation
-- Include patient details AND the requested medical sections''';
+- Include patient details AND the requested medical sections
+
+PRIORITY DIRECTIVE:
+- If additional instructions are provided by the doctor in the user prompt, follow them EXACTLY
+- Doctor's instructions override default guidelines when there's a conflict
+- Ensure all requested modifications, additions, or changes are incorporated
+- Pay special attention to any instructions marked as CRITICAL or with ⚠️  symbols''';
   }
 
   /// Convert section name to a valid JSON key
@@ -237,14 +248,27 @@ Clinical Guidelines:
 
       // Build user prompt with optional additional instructions
       String instructionsSection = '';
+      String instructionEmphasis = '';
+      
       if (additionalInstructions != null && additionalInstructions.isNotEmpty) {
         instructionsSection = '''
 
-=== ADDITIONAL INSTRUCTIONS FROM DOCTOR ===
-$additionalInstructions
-=== END ADDITIONAL INSTRUCTIONS ===
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️  CRITICAL: DOCTOR'S ADDITIONAL INSTRUCTIONS (MUST FOLLOW):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Please incorporate these instructions when generating the report.''';
+$additionalInstructions
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+''';
+        instructionEmphasis = '''
+
+IMPORTANT: The doctor has provided specific instructions above. You MUST:
+1. Follow these instructions precisely when generating the report
+2. Incorporate all requested changes, additions, or modifications
+3. Maintain consistency with the transcription while applying the instructions
+4. If instructions conflict with transcription, follow the doctor's instructions
+''';
       }
 
       if (templateConfig?.customInstructions != null && 
@@ -253,7 +277,8 @@ Please incorporate these instructions when generating the report.''';
 
 === TEMPLATE CUSTOM INSTRUCTIONS ===
 ${templateConfig.customInstructions}
-=== END TEMPLATE INSTRUCTIONS ===''';
+=== END TEMPLATE INSTRUCTIONS ===
+''';
       }
 
       final userPrompt = '''Analyze the following medical consultation transcription and generate a comprehensive clinical report.
@@ -263,7 +288,7 @@ Consultation Language: $language
 
 === TRANSCRIPTION START ===
 $transcription
-=== TRANSCRIPTION END ===$instructionsSection
+=== TRANSCRIPTION END ===$instructionsSection$instructionEmphasis
 
 Generate a detailed medical consultation report in the specified JSON format. Ensure all clinical details from the conversation are captured accurately.''';
 
