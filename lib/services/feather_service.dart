@@ -35,11 +35,13 @@ Your task is to analyze the transcription and extract structured medical informa
 
 $_patientDetailsInstruction
 
-CRITICAL RESPONSE FORMAT:
-- Respond with a valid JSON object
-- Each value MUST be a simple STRING (not nested objects or arrays)
-- Use plain text with line breaks for lists, NOT JSON arrays
-- For multiple items, use bullet points like "• Item 1\\n• Item 2"
+CRITICAL RESPONSE FORMAT - MUST FOLLOW EXACTLY:
+1. Return ONLY a valid JSON object - NO markdown, NO code fences (```json), NO explanatory text
+2. Each key MUST match exactly the keys shown in the example
+3. Each value MUST be a simple STRING (not nested objects or arrays)
+4. Use plain text with line breaks (\\n) for lists, NOT JSON arrays
+5. For multiple items, use bullet points: "• Item 1\\n• Item 2\\n• Item 3"
+6. Start response with { and end with }
 
 Respond with this JSON structure (include patient details if found, plus these medical sections):
 {
@@ -106,14 +108,16 @@ Your task is to analyze the transcription and extract structured medical informa
 
 $_patientDetailsInstruction
 
-CRITICAL RESPONSE FORMAT:
-- Respond with a valid JSON object
-- Include patient details (patient_name, age, gender, blood_group, weight, height, phone) if mentioned in conversation
-- Also include these medical sections: $jsonExample
-- Each value MUST be a simple STRING (not nested objects or arrays)
-- Use plain text with line breaks for lists, NOT JSON arrays
-- For multiple items, use bullet points like "• Item 1\\n• Item 2"
-- Do NOT use nested JSON structures within values
+CRITICAL RESPONSE FORMAT - MUST FOLLOW EXACTLY:
+1. Return ONLY a valid JSON object - NO markdown, NO code fences (```json), NO explanatory text
+2. Include patient details (patient_name, age, gender, blood_group, weight, height, phone) if mentioned
+3. Include ALL these medical sections: $jsonExample
+4. Each key MUST match exactly the keys shown
+5. Each value MUST be a simple STRING (not nested objects or arrays)
+6. Use plain text with line breaks (\\n) for lists, NOT JSON arrays
+7. For multiple items, use bullet points: "• Item 1\\n• Item 2\\n• Item 3"
+8. Start response with { and end with }
+9. If information not found, use "Not documented" for that field
 
 FORMAT STYLE: $formatInstructions
 LANGUAGE TONE: $toneInstructions
@@ -263,54 +267,144 @@ $transcription
 
 Generate a detailed medical consultation report in the specified JSON format. Ensure all clinical details from the conversation are captured accurately.''';
 
-      final response = await http.post(
-        Uri.parse('${AppConfig.featherApiUrl}/chat/completions'),
-        headers: {
-          'Authorization': 'Bearer ${AppConfig.featherApiKey}',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          'model': AppConfig.featherModel,
-          'messages': [
-            {'role': 'system', 'content': systemPrompt},
-            {'role': 'user', 'content': userPrompt},
-          ],
-          'temperature': 0.2,
-          'max_tokens': 4096,
-        }),
+      // First attempt
+      final first = await _callFeather(systemPrompt, userPrompt);
+      final validation = _validateAndExtractSections(
+        first,
+        templateConfig: templateConfig,
       );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final content = data['choices']?[0]?['message']?['content'] ?? '{}';
-
-        try {
-          final reportData = jsonDecode(content) as Map<String, dynamic>;
-          final sections = <String, String>{};
-          
-          reportData.forEach((key, value) {
-            sections[key] = _toString(value, 'Not documented');
-          });
-
-          return ReportGenerationResult.successWithSections(sections: sections);
-        } catch (jsonError) {
-          // Try to extract fields from malformed response
-          print('Non-JSON response, attempting field extraction: ${content.substring(0, 200.clamp(0, content.length))}');
-          
-          // Return raw content as a single section
-          return ReportGenerationResult.successWithSections(
-            sections: {
-              'report': content,
-            },
-          );
-        }
-      } else {
-        return ReportGenerationResult.error('Report generation failed (HTTP ${response.statusCode}): ${response.body.substring(0, 200.clamp(0, response.body.length))}');
+      if (validation.$1) {
+        return ReportGenerationResult.successWithSections(sections: validation.$2);
       }
+
+      // Retry once with explicit error instructions if validation failed
+      print('⚠️ First attempt failed validation: ${validation.$3}');
+      print('Retrying with stricter instructions...');
+      
+      final retrySystemPrompt = '''$systemPrompt
+
+CRITICAL: Your previous response was INVALID. Error: ${validation.$3}
+
+YOU MUST:
+1. Return ONLY a JSON object starting with { and ending with }
+2. NO code fences (```), NO markdown, NO explanatory text
+3. Include ALL required keys from the template
+4. Every value must be a simple string (use \\n for line breaks in lists)
+5. Use "Not documented" for any field you cannot determine from the transcription''';
+
+      final second = await _callFeather(
+        retrySystemPrompt,
+        userPrompt,
+      );
+      final retryValidation = _validateAndExtractSections(
+        second,
+        templateConfig: templateConfig,
+      );
+
+      if (retryValidation.$1) {
+        return ReportGenerationResult.successWithSections(sections: retryValidation.$2);
+      }
+
+      // If still invalid, return raw for display to avoid full failure
+      return ReportGenerationResult.successWithSections(
+        sections: {'report': second},
+      );
     } on http.ClientException catch (e) {
       return ReportGenerationResult.error('Network error: $e');
     } catch (e) {
       return ReportGenerationResult.error('Report generation error: $e');
+    }
+  }
+
+  /// Wrapper to call Feather API
+  Future<String> _callFeather(String systemPrompt, String userPrompt) async {
+    final response = await http.post(
+      Uri.parse('${AppConfig.featherApiUrl}/chat/completions'),
+      headers: {
+        'Authorization': 'Bearer ${AppConfig.featherApiKey}',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'model': AppConfig.featherModel,
+        'messages': [
+          {'role': 'system', 'content': systemPrompt},
+          {'role': 'user', 'content': userPrompt},
+        ],
+        'temperature': 0.2,
+        'max_tokens': 4096,
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Report generation failed (HTTP ${response.statusCode}): ${response.body.substring(0, 200.clamp(0, response.body.length))}',
+      );
+    }
+
+    final data = jsonDecode(response.body);
+    return data['choices']?[0]?['message']?['content']?.toString() ?? '{}';
+  }
+
+  /// Validate JSON content and extract sections; returns (isValid, sections, error)
+  (bool, Map<String, String>, String?) _validateAndExtractSections(
+    String content, {
+    ReportTemplateConfig? templateConfig,
+  }) {
+    try {
+      // Clean the content first - remove code fences, extra whitespace
+      String cleaned = content.trim();
+      
+      // Remove markdown code fences if present
+      if (cleaned.startsWith('```')) {
+        // Remove ```json or ``` at start
+        cleaned = cleaned.replaceFirst(RegExp(r'^```(?:json)?\s*\n?'), '');
+        // Remove ``` at end
+        cleaned = cleaned.replaceFirst(RegExp(r'\n?```\s*$'), '');
+        cleaned = cleaned.trim();
+      }
+      
+      // Find JSON object boundaries if there's extra text
+      final jsonMatch = RegExp(r'\{[\s\S]*\}', multiLine: true).firstMatch(cleaned);
+      if (jsonMatch != null) {
+        cleaned = jsonMatch.group(0)!;
+      }
+
+      // Try to decode
+      final decoded = jsonDecode(cleaned);
+      if (decoded is! Map<String, dynamic>) {
+        return (false, {}, 'Response is not a JSON object');
+      }
+
+      final sections = <String, String>{};
+      decoded.forEach((key, value) {
+        sections[key] = _toString(value, 'Not documented');
+      });
+
+      // Validate sections is not empty
+      if (sections.isEmpty) {
+        return (false, {}, 'No sections found in JSON');
+      }
+
+      // If a template is present, ensure expected keys exist
+      if (templateConfig?.sections != null && templateConfig!.sections.isNotEmpty) {
+        final missing = <String>[];
+        for (final section in templateConfig.sections) {
+          final key = _sectionToKey(section.name);
+          if (!sections.containsKey(key) || sections[key] == 'Not documented') {
+            missing.add(key);
+          }
+        }
+        if (missing.isNotEmpty) {
+          return (false, sections, 'Missing or empty required keys: ${missing.join(', ')}');
+        }
+      }
+
+      print('✓ Validation passed: ${sections.length} sections extracted');
+      return (true, sections, null);
+    } catch (e) {
+      print('✗ Validation failed: $e');
+      return (false, {}, 'JSON parse error: $e');
     }
   }
 

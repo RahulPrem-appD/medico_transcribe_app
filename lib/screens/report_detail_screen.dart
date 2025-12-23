@@ -13,6 +13,7 @@ import '../theme/app_theme.dart';
 import '../models/consultation.dart';
 import '../models/report.dart';
 import '../providers/consultation_provider.dart';
+import '../services/database_service.dart';
 
 class ReportDetailScreen extends StatefulWidget {
   final Consultation consultation;
@@ -28,6 +29,20 @@ class _ReportDetailScreenState extends State<ReportDetailScreen>
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Consultation _consultation;
+  
+  // Edit mode state
+  bool _isEditMode = false;
+  bool _isSaving = false;
+  late Map<String, TextEditingController> _sectionControllers;
+  
+  // Patient details controllers
+  late TextEditingController _patientNameController;
+  late TextEditingController _ageController;
+  late TextEditingController _genderController;
+  late TextEditingController _bloodGroupController;
+  late TextEditingController _phoneController;
+  late TextEditingController _weightController;
+  late TextEditingController _heightController;
 
   @override
   void initState() {
@@ -41,11 +56,51 @@ class _ReportDetailScreenState extends State<ReportDetailScreen>
       CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
     );
     _animationController.forward();
+    
+    // Initialize controllers
+    _initializeControllers();
+  }
+  
+  void _initializeControllers() {
+    final sections = _consultation.report?.sections ?? {};
+    
+    // Initialize patient detail controllers
+    _patientNameController = TextEditingController(
+      text: sections['patient_name']?.toString() ?? _consultation.patientName ?? '',
+    );
+    _ageController = TextEditingController(text: sections['age']?.toString() ?? '');
+    _genderController = TextEditingController(text: sections['gender']?.toString() ?? '');
+    _bloodGroupController = TextEditingController(text: sections['blood_group']?.toString() ?? '');
+    _phoneController = TextEditingController(text: sections['phone']?.toString() ?? '');
+    _weightController = TextEditingController(text: sections['weight']?.toString() ?? '');
+    _heightController = TextEditingController(text: sections['height']?.toString() ?? '');
+    
+    // Initialize section controllers
+    _sectionControllers = {};
+    for (final key in sections.keys) {
+      if (!_excludedSectionKeys.contains(key.toLowerCase())) {
+        _sectionControllers[key] = TextEditingController(text: sections[key]?.toString() ?? '');
+      }
+    }
   }
 
   @override
   void dispose() {
     _animationController.dispose();
+    
+    // Dispose controllers
+    _patientNameController.dispose();
+    _ageController.dispose();
+    _genderController.dispose();
+    _bloodGroupController.dispose();
+    _phoneController.dispose();
+    _weightController.dispose();
+    _heightController.dispose();
+    
+    for (final controller in _sectionControllers.values) {
+      controller.dispose();
+    }
+    
     super.dispose();
   }
 
@@ -87,42 +142,12 @@ class _ReportDetailScreenState extends State<ReportDetailScreen>
       child: Row(
         children: [
           GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.arrow_back_rounded,
-                color: AppTheme.darkSlate,
-                size: 22,
-              ),
-            ),
-          ),
-          const Expanded(
-            child: Center(
-              child: Text(
-                'Report Details',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.darkSlate,
-                ),
-              ),
-            ),
-          ),
-          GestureDetector(
             onTap: () {
-              _showOptionsMenu();
+              if (_isEditMode) {
+                _showDiscardChangesDialog();
+              } else {
+                Navigator.pop(context);
+              }
             },
             child: Container(
               padding: const EdgeInsets.all(12),
@@ -137,16 +162,205 @@ class _ReportDetailScreenState extends State<ReportDetailScreen>
                   ),
                 ],
               ),
-              child: const Icon(
-                Icons.more_vert_rounded,
+              child: Icon(
+                _isEditMode ? Icons.close_rounded : Icons.arrow_back_rounded,
                 color: AppTheme.darkSlate,
                 size: 22,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Center(
+              child: Text(
+                _isEditMode ? 'Edit Report' : 'Report Details',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.darkSlate,
+                ),
+              ),
+            ),
+          ),
+          if (_isEditMode)
+            GestureDetector(
+              onTap: _isSaving ? null : _saveChanges,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: AppTheme.successGreen,
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.successGreen.withOpacity(0.3),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: _isSaving
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : Text(
+                        'Save',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+              ),
+            )
+          else
+            GestureDetector(
+              onTap: () {
+                _showOptionsMenu();
+              },
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.more_vert_rounded,
+                  color: AppTheme.darkSlate,
+                  size: 22,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+  
+  void _showDiscardChangesDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+        ),
+        title: Text(
+          'Discard Changes?',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+        ),
+        content: Text(
+          'You have unsaved changes. Are you sure you want to discard them?',
+          style: GoogleFonts.poppins(color: AppTheme.mediumGray),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Keep Editing',
+              style: GoogleFonts.poppins(
+                color: AppTheme.primarySkyBlue,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context); // Close dialog
+              setState(() {
+                _isEditMode = false;
+                _initializeControllers(); // Reset controllers
+              });
+            },
+            child: Text(
+              'Discard',
+              style: GoogleFonts.poppins(
+                color: AppTheme.accentCoral,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
         ],
       ),
     );
+  }
+  
+  Future<void> _saveChanges() async {
+    if (_consultation.report == null) return;
+    
+    setState(() => _isSaving = true);
+    
+    try {
+      // Build updated sections map
+      final updatedSections = <String, String>{
+        'patient_name': _patientNameController.text.trim(),
+        'age': _ageController.text.trim(),
+        'gender': _genderController.text.trim(),
+        'blood_group': _bloodGroupController.text.trim(),
+        'phone': _phoneController.text.trim(),
+        'weight': _weightController.text.trim(),
+        'height': _heightController.text.trim(),
+      };
+      
+      // Add other sections
+      for (final entry in _sectionControllers.entries) {
+        updatedSections[entry.key] = entry.value.text.trim();
+      }
+      
+      // Update in database
+      final dbService = DatabaseService();
+      final updatedReport = await dbService.updateReportSections(
+        reportId: _consultation.report!.id,
+        sections: updatedSections,
+      );
+      
+      // Update local state
+      setState(() {
+        _consultation.report = updatedReport;
+        _isEditMode = false;
+        _isSaving = false;
+      });
+      
+      // Refresh the provider
+      if (mounted) {
+        Provider.of<ConsultationProvider>(context, listen: false).loadConsultations();
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Report updated successfully!',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: AppTheme.successGreen,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() => _isSaving = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to save changes: $e',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: AppTheme.accentCoral,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      }
+    }
   }
 
   // Color palette for sections
@@ -305,6 +519,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen>
   Widget _buildDynamicSectionCard(
       String sectionKey, String title, IconData icon, String content, Color accentColor) {
     
+    if (_isEditMode) {
+      return _buildEditableSectionCard(sectionKey, title, icon, accentColor);
+    }
+    
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -341,6 +559,89 @@ class _ReportDetailScreenState extends State<ReportDetailScreen>
           const SizedBox(height: 12),
           // Simple content
           _buildSimpleContent(content),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildEditableSectionCard(String sectionKey, String title, IconData icon, Color accentColor) {
+    // Ensure controller exists
+    _sectionControllers[sectionKey] ??= TextEditingController(
+      text: _consultation.report?.sections[sectionKey]?.toString() ?? '',
+    );
+    
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: accentColor.withOpacity(0.3), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header row with edit indicator
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: accentColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: accentColor, size: 18),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  title,
+                  style: GoogleFonts.poppins(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.darkSlate,
+                  ),
+                ),
+              ),
+              Icon(Icons.edit_rounded, color: accentColor.withOpacity(0.5), size: 16),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Editable text field
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: accentColor.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: accentColor.withOpacity(0.1)),
+            ),
+            child: TextField(
+              controller: _sectionControllers[sectionKey],
+              maxLines: null,
+              minLines: 3,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: AppTheme.darkSlate,
+                height: 1.5,
+              ),
+              decoration: InputDecoration(
+                border: InputBorder.none,
+                hintText: 'Enter $title...',
+                hintStyle: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: AppTheme.mediumGray,
+                ),
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -519,6 +820,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen>
   };
 
   Widget _buildPatientHeader() {
+    if (_isEditMode) {
+      return _buildEditablePatientHeader();
+    }
+    
     final details = _patientDetails;
     final hasDetails = details.values.any((v) => v.isNotEmpty);
 
@@ -652,6 +957,121 @@ class _ReportDetailScreenState extends State<ReportDetailScreen>
                   _consultation.formattedDuration,
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildEditablePatientHeader() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppTheme.primarySkyBlue.withOpacity(0.3), width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.person_rounded, color: AppTheme.primarySkyBlue, size: 22),
+              const SizedBox(width: 10),
+              Text(
+                'Patient Details',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.darkSlate,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppTheme.primarySkyBlue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Editing',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: AppTheme.primarySkyBlue,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildEditableField('Patient Name', _patientNameController, Icons.badge_rounded),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(child: _buildEditableField('Age', _ageController, Icons.cake_rounded)),
+              const SizedBox(width: 12),
+              Expanded(child: _buildEditableField('Gender', _genderController, Icons.wc_rounded)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(child: _buildEditableField('Blood Group', _bloodGroupController, Icons.bloodtype_rounded)),
+              const SizedBox(width: 12),
+              Expanded(child: _buildEditableField('Phone', _phoneController, Icons.phone_rounded)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(child: _buildEditableField('Weight', _weightController, Icons.monitor_weight_rounded)),
+              const SizedBox(width: 12),
+              Expanded(child: _buildEditableField('Height', _heightController, Icons.height_rounded)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildEditableField(String label, TextEditingController controller, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppTheme.lightGray.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.lightGray),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: AppTheme.mediumGray, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: AppTheme.darkSlate,
+              ),
+              decoration: InputDecoration(
+                border: InputBorder.none,
+                hintText: label,
+                hintStyle: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: AppTheme.mediumGray,
+                ),
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(vertical: 8),
+              ),
             ),
           ),
         ],
@@ -879,6 +1299,11 @@ class _ReportDetailScreenState extends State<ReportDetailScreen>
   }
 
   Widget _buildBottomActions() {
+    // Hide bottom actions in edit mode
+    if (_isEditMode) {
+      return const SizedBox.shrink();
+    }
+    
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -966,6 +1391,17 @@ class _ReportDetailScreenState extends State<ReportDetailScreen>
             ),
             const SizedBox(height: 24),
             _buildOptionItem(
+              Icons.edit_rounded,
+              'Edit Report',
+              'Modify report details and sections',
+              AppTheme.primarySkyBlue,
+              onTap: () {
+                Navigator.pop(context);
+                setState(() => _isEditMode = true);
+              },
+            ),
+            const SizedBox(height: 12),
+            _buildOptionItem(
               Icons.picture_as_pdf_rounded,
               'Export as PDF',
               'Download the report as PDF',
@@ -977,7 +1413,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen>
               Icons.share_rounded,
               'Share Report',
               'Share the report with others',
-              AppTheme.primarySkyBlue,
+              const Color(0xFF8B5CF6),
               onTap: () => _shareReport(fromBottomSheet: true),
             ),
             const SizedBox(height: 12),

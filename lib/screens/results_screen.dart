@@ -129,6 +129,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
     // Initialize edited sections with current values
     if (_consultation.report != null) {
       _editedSections = Map.from(_consultation.report!.sections);
+      _normalizeReportSections();
     }
     
     // Initialize patient detail controllers
@@ -261,15 +262,6 @@ class _ResultsScreenState extends State<ResultsScreen> {
                 // Consultation info card (non-editable)
                 _buildConsultationInfoCard(),
                 const SizedBox(height: 16),
-                // Transcription (collapsible)
-                if (_consultation.transcription != null)
-                  _buildCollapsibleCard(
-                    'Transcription',
-                    Icons.record_voice_over_rounded,
-                    _consultation.transcription!,
-                    AppTheme.mediumGray,
-                  ),
-                const SizedBox(height: 16),
                 // Dynamic report sections (excluding patient details already shown above)
                 if (report != null) ...[
                   ...report.sectionKeys.asMap().entries
@@ -296,6 +288,15 @@ class _ResultsScreenState extends State<ResultsScreen> {
                   }),
                 ] else
                   _buildNoReportCard(),
+                const SizedBox(height: 16),
+                // Transcription (collapsible) - moved to bottom
+                if (_consultation.transcription != null)
+                  _buildCollapsibleCard(
+                    'Transcription',
+                    Icons.record_voice_over_rounded,
+                    _consultation.transcription!,
+                    AppTheme.mediumGray,
+                  ),
                 const SizedBox(height: 100),
               ],
             ),
@@ -1692,6 +1693,75 @@ class _ResultsScreenState extends State<ResultsScreen> {
       MaterialPageRoute(builder: (_) => const HomeScreen()),
       (route) => false,
     );
+  }
+
+  /// When the API returns a `report` field containing JSON, expand/merge it into section entries
+  void _normalizeReportSections() {
+    if (!_editedSections.containsKey('report')) return;
+
+    final raw = _editedSections['report'] ?? '';
+    if (raw.isEmpty) return;
+
+    try {
+      // Strip markdown fences if any
+      String normalized = raw.trim();
+      if (normalized.startsWith('```')) {
+        final firstNewline = normalized.indexOf('\n');
+        if (firstNewline != -1) {
+          normalized = normalized.substring(firstNewline + 1);
+        } else {
+          normalized = normalized.replaceFirst('```', '');
+        }
+      }
+      if (normalized.endsWith('```')) {
+        normalized = normalized.substring(0, normalized.lastIndexOf('```')).trim();
+      }
+
+      final decoded = jsonDecode(normalized);
+      if (decoded is Map<String, dynamic>) {
+        final merged = Map<String, String>.from(_editedSections);
+        merged.remove('report'); // replace the raw blob
+
+        decoded.forEach((key, value) {
+          merged[key] = _valueToText(value);
+        });
+
+        if (merged.isNotEmpty) {
+          _editedSections = merged;
+          if (_consultation.report != null) {
+            _consultation.report = _consultation.report!.copyWith(
+              sections: merged,
+            );
+          }
+        }
+      }
+    } catch (e) {
+      // If parsing fails, keep the original so we still show something
+      debugPrint('Normalize report sections failed: $e');
+    }
+  }
+
+  /// Convert dynamic JSON values to readable text
+  String _valueToText(dynamic value) {
+    if (value == null) return 'Not documented';
+    if (value is String) return value.trim();
+    if (value is num || value is bool) return value.toString();
+    if (value is List) {
+      final items =
+          value.map((v) => _valueToText(v)).where((v) => v.isNotEmpty).toList();
+      return items.join('\n');
+    }
+    if (value is Map) {
+      final lines = <String>[];
+      value.forEach((k, v) {
+        final text = _valueToText(v);
+        if (text.isNotEmpty) {
+          lines.add('$k: $text');
+        }
+      });
+      return lines.join('\n');
+    }
+    return value.toString();
   }
 
   Future<void> _saveAndClose() async {

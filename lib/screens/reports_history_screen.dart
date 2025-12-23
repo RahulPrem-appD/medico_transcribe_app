@@ -534,14 +534,27 @@ class _PatientCardState extends State<_PatientCard>
     return name.isNotEmpty ? name[0].toUpperCase() : 'P';
   }
 
+  // Helper to check if a value is valid (not empty and not "Not documented")
+  bool _isValidValue(String value) {
+    return value.isNotEmpty && 
+           value.toLowerCase() != 'not documented' && 
+           value.toLowerCase() != 'unknown';
+  }
+
   @override
   Widget build(BuildContext context) {
     final name = widget.patientDetails['name'] ?? 'Unknown';
-    final age = widget.patientDetails['age'] ?? '';
-    final gender = widget.patientDetails['gender'] ?? '';
-    final bloodGroup = widget.patientDetails['blood_group'] ?? '';
-    final phone = widget.patientDetails['phone'] ?? '';
+    final rawAge = widget.patientDetails['age'] ?? '';
+    final rawGender = widget.patientDetails['gender'] ?? '';
+    final rawBloodGroup = widget.patientDetails['blood_group'] ?? '';
+    final rawPhone = widget.patientDetails['phone'] ?? '';
     final reportCount = widget.consultations.length;
+    
+    // Filter out "Not documented" values
+    final age = _isValidValue(rawAge) ? rawAge : '';
+    final gender = _isValidValue(rawGender) ? rawGender : '';
+    final bloodGroup = _isValidValue(rawBloodGroup) ? rawBloodGroup : '';
+    final phone = _isValidValue(rawPhone) ? rawPhone : '';
 
     return FadeTransition(
       opacity: _fadeAnimation,
@@ -612,17 +625,17 @@ class _PatientCardState extends State<_PatientCard>
                               ),
                             ),
                             const SizedBox(height: 4),
-                            Row(
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
                               children: [
                                 if (age.isNotEmpty || gender.isNotEmpty)
                                   _buildTag(
                                     '${age.isNotEmpty ? "${age}y" : ""}${age.isNotEmpty && gender.isNotEmpty ? ", " : ""}$gender',
                                     AppTheme.mediumGray,
                                   ),
-                                if (bloodGroup.isNotEmpty) ...[
-                                  const SizedBox(width: 6),
+                                if (bloodGroup.isNotEmpty)
                                   _buildTag(bloodGroup, AppTheme.accentCoral),
-                                ],
                               ],
                             ),
                             if (phone.isNotEmpty) ...[
@@ -709,6 +722,7 @@ class _PatientCardState extends State<_PatientCard>
   Widget _buildTag(String text, Color color) {
     if (text.isEmpty) return const SizedBox.shrink();
     return Container(
+      constraints: const BoxConstraints(maxWidth: 150),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
@@ -721,6 +735,8 @@ class _PatientCardState extends State<_PatientCard>
           fontWeight: FontWeight.w500,
           color: color,
         ),
+        overflow: TextOverflow.ellipsis,
+        maxLines: 1,
       ),
     );
   }

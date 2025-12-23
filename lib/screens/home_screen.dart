@@ -408,7 +408,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         ),
         const SizedBox(height: 6),
         Text(
-          'Ready to capture your consultations',
+          'Ready for consultations',
           style: GoogleFonts.poppins(
             fontSize: 15,
             color: AppTheme.getSecondaryTextColor(context),

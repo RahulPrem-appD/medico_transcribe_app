@@ -5,7 +5,7 @@ import '../theme/app_theme.dart';
 import '../providers/consultation_provider.dart';
 import '../models/consultation.dart';
 import '../models/report_template.dart';
-import 'transcription_review_screen.dart';
+import 'template_selection_screen.dart';
 import 'results_screen.dart';
 
 class ProcessingScreen extends StatefulWidget {
@@ -34,7 +34,6 @@ class _ProcessingScreenState extends State<ProcessingScreen>
   bool _isProcessing = false;
   String? _transcription;
   String? _consultationId;
-  List<dynamic>? _diarization;
 
   @override
   void initState() {
@@ -68,18 +67,13 @@ class _ProcessingScreenState extends State<ProcessingScreen>
     if (!mounted) return;
 
     if (result.success && result.transcription != null) {
-      print('Processing screen - Diarization received: ${result.diarization}');
-      print(
-        'Processing screen - Diarization length: ${result.diarization?.length ?? 0}',
-      );
       setState(() {
         _transcription = result.transcription;
         _consultationId = result.consultationId;
-        _diarization = result.diarization;
       });
 
-      // Navigate to transcription review screen
-      _showTranscriptionReview();
+      // Navigate directly to template selection (skip transcription editing)
+      _navigateToTemplateSelection();
     } else {
       setState(() {
         _errorMessage =
@@ -88,18 +82,17 @@ class _ProcessingScreenState extends State<ProcessingScreen>
     }
   }
 
-  void _showTranscriptionReview() {
+  void _navigateToTemplateSelection() {
     Navigator.pushReplacement(
       context,
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) =>
-            TranscriptionReviewScreen(
+            TemplateSelectionScreen(
               transcription: _transcription!,
               language: widget.language,
               patientName: widget.patientName,
               duration: widget.duration,
               consultationId: _consultationId!,
-              diarization: _diarization,
             ),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(opacity: animation, child: child);
