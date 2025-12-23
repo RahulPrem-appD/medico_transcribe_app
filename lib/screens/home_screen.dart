@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/elephant_logo.dart';
 import '../services/database_service.dart';
-import '../providers/theme_provider.dart';
 import 'language_selection_screen.dart';
 import 'reports_history_screen.dart';
 import 'template_manager_screen.dart';
@@ -147,26 +145,24 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildBackground(Size size) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
-
     return Container(
-      decoration: BoxDecoration(
-        gradient: AppTheme.getBackgroundGradient(context),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppTheme.softSkyBg, AppTheme.paleBlue, Colors.white],
+        ),
       ),
       child: CustomPaint(
         size: size,
         painter: _GridPatternPainter(
-          color: themeProvider.primaryColor.withOpacity(0.03),
+          color: AppTheme.primarySkyBlue.withOpacity(0.03),
         ),
       ),
     );
   }
 
   Widget _buildFloatingOrbs(Size size) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    final primaryColor = themeProvider.primaryColor;
-    final secondaryColor = themeProvider.secondaryColor;
-
     return IgnorePointer(
       // IMPORTANT: Prevents orbs from blocking touch events
       child: AnimatedBuilder(
@@ -185,8 +181,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     shape: BoxShape.circle,
                     gradient: RadialGradient(
                       colors: [
-                        primaryColor.withOpacity(0.15),
-                        primaryColor.withOpacity(0.0),
+                        AppTheme.primarySkyBlue.withOpacity(0.15),
+                        AppTheme.primarySkyBlue.withOpacity(0.0),
                       ],
                     ),
                   ),
@@ -203,8 +199,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     shape: BoxShape.circle,
                     gradient: RadialGradient(
                       colors: [
-                        secondaryColor.withOpacity(0.1),
-                        secondaryColor.withOpacity(0.0),
+                        AppTheme.deepSkyBlue.withOpacity(0.1),
+                        AppTheme.deepSkyBlue.withOpacity(0.0),
                       ],
                     ),
                   ),
@@ -218,9 +214,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildTopSection() {
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    final primaryColor = themeProvider.primaryColor;
-
     return FadeTransition(
       opacity: _fadeAnimation,
       child: Padding(
@@ -233,11 +226,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               child: Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: AppTheme.getSurfaceColor(context),
+                  color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: primaryColor.withOpacity(0.15),
+                      color: AppTheme.primarySkyBlue.withOpacity(0.15),
                       blurRadius: 20,
                       offset: const Offset(0, 4),
                     ),
@@ -446,104 +439,97 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ),
         );
       },
-      child: Consumer<ThemeProvider>(
-        builder: (context, themeProvider, child) {
-          final primaryColor = themeProvider.primaryColor;
-          final secondaryColor = themeProvider.secondaryColor;
-
-          return AnimatedBuilder(
-            animation: _pulseAnimation,
-            builder: (context, child) {
-              return Transform.scale(
-                scale: _pulseAnimation.value,
+      child: AnimatedBuilder(
+        animation: _pulseAnimation,
+        builder: (context, child) {
+          return Transform.scale(
+            scale: _pulseAnimation.value,
+            child: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    AppTheme.primarySkyBlue.withOpacity(0.15),
+                    AppTheme.deepSkyBlue.withOpacity(0.08),
+                  ],
+                ),
+              ),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      AppTheme.primarySkyBlue.withOpacity(0.25),
+                      AppTheme.deepSkyBlue.withOpacity(0.15),
+                    ],
+                  ),
+                ),
                 child: Container(
-                  padding: const EdgeInsets.all(6),
+                  width: 160,
+                  height: 160,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    gradient: LinearGradient(
+                    gradient: const LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
-                        primaryColor.withOpacity(0.15),
-                        secondaryColor.withOpacity(0.08),
+                        AppTheme.lightSkyBlue,
+                        AppTheme.primarySkyBlue,
+                        AppTheme.deepSkyBlue,
                       ],
                     ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.primarySkyBlue.withOpacity(0.4),
+                        blurRadius: 30,
+                        offset: const Offset(0, 15),
+                        spreadRadius: 0,
+                      ),
+                      BoxShadow(
+                        color: AppTheme.deepSkyBlue.withOpacity(0.2),
+                        blurRadius: 60,
+                        offset: const Offset(0, 25),
+                        spreadRadius: 10,
+                      ),
+                    ],
                   ),
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          primaryColor.withOpacity(0.25),
-                          secondaryColor.withOpacity(0.15),
-                        ],
-                      ),
-                    ),
-                    child: Container(
-                      width: 160,
-                      height: 160,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Color.lerp(primaryColor, Colors.white, 0.2)!,
-                            primaryColor,
-                            secondaryColor,
-                          ],
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          shape: BoxShape.circle,
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: primaryColor.withOpacity(0.4),
-                            blurRadius: 30,
-                            offset: const Offset(0, 15),
-                            spreadRadius: 0,
-                          ),
-                          BoxShadow(
-                            color: secondaryColor.withOpacity(0.2),
-                            blurRadius: 60,
-                            offset: const Offset(0, 25),
-                            spreadRadius: 10,
-                          ),
-                        ],
+                        child: const Icon(
+                          Icons.mic_rounded,
+                          color: Colors.white,
+                          size: 36,
+                        ),
                       ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.mic_rounded,
-                              color: Colors.white,
-                              size: 36,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          const SizedBox(height: 10),
-                          Text(
-                            'START',
-                            style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                              letterSpacing: 2,
-                            ),
-                          ),
-                        ],
+                      const SizedBox(height: 10),
+                      const SizedBox(height: 10),
+                      Text(
+                        'START',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                          letterSpacing: 2,
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                 ),
-              );
-            },
+              ),
+            ),
           );
         },
       ),
@@ -560,7 +546,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               icon: Icons.folder_copy_rounded,
               label: 'Reports',
               sublabel: 'View history',
-              color: const Color(0xFF10B981),
+              color: AppTheme.primarySkyBlue,
               onTap: () {
                 Navigator.push(
                   context,
@@ -577,7 +563,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               icon: Icons.article_rounded,
               label: 'Templates',
               sublabel: 'Customize',
-              color: const Color(0xFFF59E0B),
+              color: AppTheme.deepSkyBlue,
               onTap: () {
                 Navigator.push(
                   context,
@@ -594,7 +580,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               icon: Icons.sticky_note_2_rounded,
               label: 'Notes',
               sublabel: 'Quick notes',
-              color: const Color(0xFF8B5CF6),
+              color: AppTheme.lightSkyBlue,
               onTap: () {
                 Navigator.push(
                   context,
@@ -609,12 +595,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildStatsBar() {
-    final themeProvider = Provider.of<ThemeProvider>(context);
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
-        color: AppTheme.getSurfaceColor(context),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
@@ -631,21 +615,21 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             'Today',
             _todayCount.toString(),
             Icons.calendar_today_rounded,
-            themeProvider.primaryColor,
+            AppTheme.primarySkyBlue,
           ),
           _buildStatDivider(),
           _buildStatItem(
             'This Week',
             _weekCount.toString(),
             Icons.date_range_rounded,
-            themeProvider.primaryColor,
+            AppTheme.primarySkyBlue,
           ),
           _buildStatDivider(),
           _buildStatItem(
             'Total',
             _totalCount.toString(),
             Icons.bar_chart_rounded,
-            themeProvider.primaryColor,
+            AppTheme.primarySkyBlue,
           ),
         ],
       ),

@@ -5,13 +5,13 @@ import '../providers/theme_provider.dart';
 class AppTheme {
   // ==================== COLOR PALETTE ====================
   
-  // Primary Sky Blue (Default)
-  static const Color primarySkyBlue = Color(0xFF4A90D9);
-  static const Color deepSkyBlue = Color(0xFF2E78C2);
-  static const Color lightSkyBlue = Color(0xFF87CEEB);
-  static const Color accentBlue = Color(0xFF1E5AA8);
-  static const Color softSkyBg = Color(0xFFF0F8FF);
-  static const Color paleBlue = Color(0xFFE6F3FF);
+  // Primary Baby Blue - Vibrant and Fresh
+  static const Color primarySkyBlue = Color(0xFF5DB5FF);  // Bright baby blue
+  static const Color deepSkyBlue = Color(0xFF3DA0FF);     // Deep baby blue
+  static const Color lightSkyBlue = Color(0xFF9FD6FF);    // Light baby blue
+  static const Color accentBlue = Color(0xFF2280E8);      // Accent blue
+  static const Color softSkyBg = Color(0xFFF5FBFF);       // Very light blue background
+  static const Color paleBlue = Color(0xFFE8F5FF);        // Pale baby blue
   
   // Neutral Colors
   static const Color darkSlate = Color(0xFF1A2B3C);
@@ -38,10 +38,11 @@ class AppTheme {
 
   // ==================== THEME DATA ====================
 
-  /// Get light theme with specified accent color
+  /// Get light theme with baby blue colors
   static ThemeData lightTheme({Color? primaryColor, Color? secondaryColor}) {
-    final primary = primaryColor ?? primarySkyBlue;
-    final secondary = secondaryColor ?? deepSkyBlue;
+    // Always use baby blue - ignore parameters
+    final primary = primarySkyBlue;
+    final secondary = deepSkyBlue;
     
     return ThemeData(
       useMaterial3: true,

@@ -188,9 +188,9 @@ class _NotesScreenState extends State<NotesScreen> with SingleTickerProviderStat
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Color(0xFFF8FBFF),
-              Color(0xFFEDF5FF),
-              Color(0xFFF0F4F8),
+              AppTheme.softSkyBg,
+              AppTheme.paleBlue,
+              Colors.white,
             ],
           ),
         ),

@@ -37,18 +37,18 @@ class _ResultsScreenState extends State<ResultsScreen> {
   late TextEditingController _heightController;
   late TextEditingController _phoneController;
 
-  // Color palette for sections
+  // Color palette for sections - vibrant colors for visual distinction
   final List<Color> _sectionColors = [
-    AppTheme.accentCoral,
-    AppTheme.warningAmber,
-    AppTheme.primarySkyBlue,
-    AppTheme.successGreen,
-    AppTheme.deepSkyBlue,
-    const Color(0xFF8B5CF6), // Purple
-    const Color(0xFFEC4899), // Pink
-    const Color(0xFF14B8A6), // Teal
-    const Color(0xFFF97316), // Orange
-    const Color(0xFF6366F1), // Indigo
+    const Color(0xFF5DB5FF), // Sky Blue
+    const Color(0xFF4ECDC4), // Teal
+    const Color(0xFFE85D5D), // Coral Red
+    const Color(0xFF9B59B6), // Purple
+    const Color(0xFFFFB74D), // Amber
+    const Color(0xFF26C6DA), // Cyan
+    const Color(0xFF66BB6A), // Green
+    const Color(0xFFFF7043), // Deep Orange
+    const Color(0xFF5C6BC0), // Indigo
+    const Color(0xFFEC407A), // Pink
   ];
 
   // Icon mapping for common sections
@@ -407,7 +407,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [AppTheme.successGreen, Color(0xFF34D399)],
+          colors: [AppTheme.primarySkyBlue, AppTheme.deepSkyBlue],
         ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [

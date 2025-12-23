@@ -910,16 +910,16 @@ class _PatientCardState extends State<_PatientCard>
 
   Color _getLanguageColor(String language) {
     final colors = {
-      'Hindi': const Color(0xFFFF6B6B),
-      'Tamil': const Color(0xFF4ECDC4),
-      'Telugu': const Color(0xFFFFE66D),
-      'Kannada': const Color(0xFF95E1D3),
-      'Malayalam': const Color(0xFFF38181),
-      'Bengali': const Color(0xFFAA96DA),
-      'Marathi': const Color(0xFFFFAA64),
-      'Gujarati': const Color(0xFF81C784),
-      'Punjabi': const Color(0xFF64B5F6),
-      'English': const Color(0xFF90A4AE),
+      'Hindi': AppTheme.primarySkyBlue,
+      'Tamil': AppTheme.deepSkyBlue,
+      'Telugu': AppTheme.lightSkyBlue,
+      'Kannada': AppTheme.accentBlue,
+      'Malayalam': AppTheme.primarySkyBlue,
+      'Bengali': AppTheme.deepSkyBlue,
+      'Marathi': AppTheme.lightSkyBlue,
+      'Gujarati': AppTheme.accentBlue,
+      'Punjabi': AppTheme.primarySkyBlue,
+      'English': AppTheme.deepSkyBlue,
     };
     return colors[language] ?? AppTheme.primarySkyBlue;
   }

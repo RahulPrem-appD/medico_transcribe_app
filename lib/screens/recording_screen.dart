@@ -557,7 +557,7 @@ class _RecordingScreenState extends State<RecordingScreen>
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: _isRecording && !_isPaused
-                              ? [AppTheme.accentCoral, const Color(0xFFFF7B7B)]
+                              ? [AppTheme.accentCoral, AppTheme.accentCoral.withOpacity(0.8)]
                               : [
                                   AppTheme.primarySkyBlue,
                                   AppTheme.deepSkyBlue

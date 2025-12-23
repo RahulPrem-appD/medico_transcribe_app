@@ -363,18 +363,18 @@ class _ReportDetailScreenState extends State<ReportDetailScreen>
     }
   }
 
-  // Color palette for sections
+  // Color palette for sections - baby blue variations
   final List<Color> _sectionColors = [
-    AppTheme.accentCoral,
-    AppTheme.warningAmber,
-    AppTheme.primarySkyBlue,
-    AppTheme.successGreen,
-    AppTheme.deepSkyBlue,
-    const Color(0xFF8B5CF6), // Purple
-    const Color(0xFFEC4899), // Pink
-    const Color(0xFF14B8A6), // Teal
-    const Color(0xFFF97316), // Orange
-    const Color(0xFF6366F1), // Indigo
+    const Color(0xFF5DB5FF), // Sky Blue
+    const Color(0xFF4ECDC4), // Teal
+    const Color(0xFFE85D5D), // Coral Red
+    const Color(0xFF9B59B6), // Purple
+    const Color(0xFFFFB74D), // Amber
+    const Color(0xFF26C6DA), // Cyan
+    const Color(0xFF66BB6A), // Green
+    const Color(0xFFFF7043), // Deep Orange
+    const Color(0xFF5C6BC0), // Indigo
+    const Color(0xFFEC407A), // Pink
   ];
 
   // Icon mapping for common sections
@@ -1413,7 +1413,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen>
               Icons.share_rounded,
               'Share Report',
               'Share the report with others',
-              const Color(0xFF8B5CF6),
+              AppTheme.primarySkyBlue,
               onTap: () => _shareReport(fromBottomSheet: true),
             ),
             const SizedBox(height: 12),

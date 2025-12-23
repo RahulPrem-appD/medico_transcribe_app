@@ -106,28 +106,16 @@ class _DoctorScribeAppState extends State<DoctorScribeApp> {
   Widget build(BuildContext context) {
     return Consumer<ThemeProvider>(
       builder: (context, themeProvider, child) {
-        // Update system UI based on theme
-        final isDark =
-            themeProvider.themeMode == AppThemeMode.dark ||
-            (themeProvider.themeMode == AppThemeMode.system &&
-                MediaQuery.of(context).platformBrightness == Brightness.dark);
-
+        // Always use light theme with baby blue
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          _updateSystemUI(isDark);
+          _updateSystemUI(false); // Never dark
         });
 
         return MaterialApp(
           title: 'Doctor Scribe',
           debugShowCheckedModeBanner: false,
-          theme: AppTheme.lightTheme(
-            primaryColor: themeProvider.primaryColor,
-            secondaryColor: themeProvider.secondaryColor,
-          ),
-          darkTheme: AppTheme.darkTheme(
-            primaryColor: themeProvider.primaryColor,
-            secondaryColor: themeProvider.secondaryColor,
-          ),
-          themeMode: themeProvider.materialThemeMode,
+          theme: AppTheme.lightTheme(), // Always baby blue light theme
+          themeMode: ThemeMode.light, // Force light mode
           navigatorKey: _navigatorKey,
           home: _buildHome(),
         );
@@ -136,28 +124,19 @@ class _DoctorScribeAppState extends State<DoctorScribeApp> {
   }
 
   Widget _buildHome() {
-    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
-    final isDark = themeProvider.themeMode == AppThemeMode.dark;
-
     if (_initError != null) {
       return Scaffold(
         body: Container(
           decoration: BoxDecoration(
-            gradient: isDark
-                ? LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [AppTheme.darkBackground, AppTheme.darkSurface],
-                  )
-                : LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      AppTheme.softSkyBg,
-                      AppTheme.paleBlue.withOpacity(0.5),
-                      Colors.white,
-                    ],
-                  ),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                AppTheme.softSkyBg,
+                AppTheme.paleBlue.withOpacity(0.5),
+                Colors.white,
+              ],
+            ),
           ),
           child: Center(
             child: Padding(
@@ -178,22 +157,20 @@ class _DoctorScribeAppState extends State<DoctorScribeApp> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  Text(
+                  const Text(
                     'Initialization Error',
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
-                      color: isDark ? AppTheme.darkText : AppTheme.darkSlate,
+                      color: AppTheme.darkSlate,
                     ),
                   ),
                   const SizedBox(height: 12),
                   Text(
                     _initError!,
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: isDark
-                          ? AppTheme.darkTextSecondary
-                          : AppTheme.mediumGray,
+                    style: const TextStyle(
+                      color: AppTheme.mediumGray,
                       fontSize: 14,
                     ),
                   ),
@@ -206,7 +183,7 @@ class _DoctorScribeAppState extends State<DoctorScribeApp> {
                       });
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: themeProvider.primaryColor,
+                      backgroundColor: AppTheme.primarySkyBlue,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 32,
                         vertical: 16,
@@ -226,38 +203,30 @@ class _DoctorScribeAppState extends State<DoctorScribeApp> {
       return Scaffold(
         body: Container(
           decoration: BoxDecoration(
-            gradient: isDark
-                ? LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [AppTheme.darkBackground, AppTheme.darkSurface],
-                  )
-                : LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      AppTheme.softSkyBg,
-                      AppTheme.paleBlue.withOpacity(0.5),
-                      Colors.white,
-                    ],
-                  ),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                AppTheme.softSkyBg,
+                AppTheme.paleBlue.withOpacity(0.5),
+                Colors.white,
+              ],
+            ),
           ),
           child: Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                CircularProgressIndicator(
+                const CircularProgressIndicator(
                   valueColor: AlwaysStoppedAnimation<Color>(
-                    themeProvider.primaryColor,
+                    AppTheme.primarySkyBlue,
                   ),
                 ),
                 const SizedBox(height: 16),
                 Text(
                   'Initializing...',
-                  style: TextStyle(
-                    color: isDark
-                        ? AppTheme.darkTextSecondary
-                        : AppTheme.mediumGray,
+                  style: const TextStyle(
+                    color: AppTheme.mediumGray,
                     fontSize: 16,
                   ),
                 ),
