@@ -5,6 +5,7 @@ import '../theme/app_theme.dart';
 import '../providers/consultation_provider.dart';
 import '../models/consultation.dart';
 import '../models/report_template.dart';
+import '../services/template_service.dart';
 import 'template_selection_screen.dart';
 import 'results_screen.dart';
 
@@ -13,6 +14,7 @@ class ProcessingScreen extends StatefulWidget {
   final String language;
   final String? patientName;
   final String duration;
+  final String? templateId;
 
   const ProcessingScreen({
     super.key,
@@ -20,6 +22,7 @@ class ProcessingScreen extends StatefulWidget {
     required this.language,
     this.patientName,
     required this.duration,
+    this.templateId,
   });
 
   @override
@@ -72,8 +75,13 @@ class _ProcessingScreenState extends State<ProcessingScreen>
         _consultationId = result.consultationId;
       });
 
-      // Navigate directly to template selection (skip transcription editing)
-      _navigateToTemplateSelection();
+      // If templateId is provided, go directly to report generation
+      // Otherwise, navigate to template selection
+      if (widget.templateId != null) {
+        _navigateToReportGeneration();
+      } else {
+        _navigateToTemplateSelection();
+      }
     } else {
       setState(() {
         _errorMessage =
@@ -93,6 +101,38 @@ class _ProcessingScreenState extends State<ProcessingScreen>
               patientName: widget.patientName,
               duration: widget.duration,
               consultationId: _consultationId!,
+            ),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+        transitionDuration: const Duration(milliseconds: 500),
+      ),
+    );
+  }
+
+  Future<void> _navigateToReportGeneration() async {
+    // Get the template by ID
+    final templateService = TemplateService();
+    await templateService.initialize();
+    final template = await templateService.getTemplateById(widget.templateId!);
+    
+    if (template == null || !mounted) {
+      // Fallback to template selection if template not found
+      _navigateToTemplateSelection();
+      return;
+    }
+
+    Navigator.pushReplacement(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            ReportGenerationScreen(
+              consultationId: _consultationId!,
+              transcription: _transcription!,
+              language: widget.language,
+              patientName: widget.patientName,
+              duration: widget.duration,
+              template: template,
             ),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(opacity: animation, child: child);

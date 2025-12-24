@@ -12,11 +12,13 @@ import 'processing_screen.dart';
 class RecordingScreen extends StatefulWidget {
   final String language;
   final String? patientName;
+  final String? templateId;
 
   const RecordingScreen({
     super.key,
     required this.language,
     this.patientName,
+    this.templateId,
   });
 
   @override
@@ -201,6 +203,7 @@ class _RecordingScreenState extends State<RecordingScreen>
               language: widget.language,
               patientName: widget.patientName,
               duration: _formatDuration(_recordingSeconds),
+              templateId: widget.templateId,
             ),
             transitionsBuilder:
                 (context, animation, secondaryAnimation, child) {

@@ -10,6 +10,7 @@ class TemplateService {
 
   static const String _customTemplatesKey = 'custom_report_templates';
   static const String _lastUsedTemplateKey = 'last_used_template_id';
+  static const String _lastUsedLanguageKey = 'last_used_language';
 
   SharedPreferences? _prefs;
   bool _isInitializing = false;
@@ -159,6 +160,38 @@ class TemplateService {
   /// Generate a unique ID for new templates
   String generateTemplateId() {
     return 'custom_${DateTime.now().millisecondsSinceEpoch}';
+  }
+
+  /// Get the last used language
+  Future<String?> getLastUsedLanguage() async {
+    try {
+      if (_prefs == null) {
+        await initialize();
+      }
+      if (_prefs == null) {
+        return null;
+      }
+      return _prefs!.getString(_lastUsedLanguageKey);
+    } catch (e) {
+      print('Error getting last used language: $e');
+      return null;
+    }
+  }
+
+  /// Set the last used language
+  Future<bool> setLastUsedLanguage(String language) async {
+    try {
+      if (_prefs == null) {
+        await initialize();
+      }
+      if (_prefs == null) {
+        return false;
+      }
+      return await _prefs!.setString(_lastUsedLanguageKey, language);
+    } catch (e) {
+      print('Error setting last used language: $e');
+      return false;
+    }
   }
 }
 

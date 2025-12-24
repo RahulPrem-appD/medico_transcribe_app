@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 import '../widgets/elephant_logo.dart';
 import '../services/database_service.dart';
-import 'language_selection_screen.dart';
+import 'consultation_setup_screen.dart';
 import 'reports_history_screen.dart';
 import 'template_manager_screen.dart';
 import 'notes_screen.dart';
@@ -419,7 +419,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           context,
           PageRouteBuilder(
             pageBuilder: (context, animation, secondaryAnimation) =>
-                const LanguageSelectionScreen(),
+                const ConsultationSetupScreen(),
             transitionsBuilder:
                 (context, animation, secondaryAnimation, child) {
                   return FadeTransition(
