@@ -48,7 +48,7 @@ Respond with this JSON structure (include patient details if found, plus these m
     "patient_name": "Name if mentioned",
     "age": "Age if mentioned",
     "gender": "Gender if mentioned",
-    "patient_summary": "Brief summary in passive voice (e.g., Patient was diagnosed with... Patient was advised to...)",
+    "patient_summary": "Brief summary addressing the patient directly as 'you' (e.g., You came with problems of... You have symptoms of... You were diagnosed with... You are advised to...)",
     "chief_complaint": "Primary reason for the visit in 1-2 sentences",
     "symptoms": "• Symptom 1 with details\\n• Symptom 2 with details",
     "diagnosis": "Clinical assessment/diagnosis based on the presented symptoms",
@@ -82,10 +82,12 @@ PRIORITY DIRECTIVE:
     String formatInstructions = '';
     switch (templateConfig.format) {
       case 'concise':
-        formatInstructions = 'Keep responses brief and to the point. Use short sentences.';
+        formatInstructions =
+            'Keep responses brief and to the point. Use short sentences.';
         break;
       case 'bullet_points':
-        formatInstructions = 'Use bullet points for all content. Make it easy to scan quickly.';
+        formatInstructions =
+            'Use bullet points for all content. Make it easy to scan quickly.';
         break;
       case 'detailed':
       default:
@@ -96,14 +98,17 @@ PRIORITY DIRECTIVE:
     String toneInstructions = '';
     switch (templateConfig.tone) {
       case 'simple':
-        toneInstructions = 'Use simple, easy-to-understand language. Avoid complex medical jargon. Explain terms when necessary.';
+        toneInstructions =
+            'Use simple, easy-to-understand language. Avoid complex medical jargon. Explain terms when necessary.';
         break;
       case 'technical':
-        toneInstructions = 'Use precise medical terminology and technical language appropriate for clinical documentation.';
+        toneInstructions =
+            'Use precise medical terminology and technical language appropriate for clinical documentation.';
         break;
       case 'formal':
       default:
-        toneInstructions = 'Use professional medical language appropriate for clinical documentation.';
+        toneInstructions =
+            'Use professional medical language appropriate for clinical documentation.';
     }
 
     final jsonExample = jsonEncode(jsonStructure);
@@ -168,12 +173,15 @@ PRIORITY DIRECTIVE:
   String _getSectionDescription(ReportSection section) {
     // Map common section names to descriptions
     final descriptions = {
-      'patient_summary': 'Brief summary of the diagnosis and advice in passive voice (e.g., "Patient was diagnosed with... Patient was advised to...")',
+      'patient_summary':
+          'Brief summary addressing the patient directly as "you" (e.g., "You came with problems of... You have symptoms of... You were diagnosed with... You are advised to...")',
       'chief_complaint': 'Primary reason for the visit in 1-2 sentences',
       'history': 'Detailed history of the present illness',
       'history_of_present_illness': 'Detailed history of the present illness',
-      'past_medical': 'Previous medical conditions, surgeries, hospitalizations',
-      'past_medical_history': 'Previous medical conditions, surgeries, hospitalizations',
+      'past_medical':
+          'Previous medical conditions, surgeries, hospitalizations',
+      'past_medical_history':
+          'Previous medical conditions, surgeries, hospitalizations',
       'family_history': 'Relevant family medical history',
       'social_history': 'Lifestyle, occupation, habits',
       'allergies': 'Known allergies and reactions',
@@ -202,7 +210,8 @@ PRIORITY DIRECTIVE:
       'referral_reason': 'Reason for specialist referral',
       'reason_for_follow_up': 'Reason for this follow-up visit',
       'progress': 'Progress since last visit',
-      'progress_since_last_visit': 'Changes in symptoms and condition since last visit',
+      'progress_since_last_visit':
+          'Changes in symptoms and condition since last visit',
       'plan_update': 'Updates to the treatment plan',
       'updated_treatment_plan': 'Updates to the treatment plan',
       'summary': 'Summary of findings in simple terms',
@@ -217,11 +226,14 @@ PRIORITY DIRECTIVE:
       'clinical_findings': 'Clinical examination findings',
       'provisional_diagnosis': 'Provisional diagnosis for referral',
       'specific_questions': 'Specific questions for the specialist',
-      'specific_questions_for_specialist': 'Specific questions for the specialist',
+      'specific_questions_for_specialist':
+          'Specific questions for the specialist',
     };
 
     final key = _sectionToKey(section.name);
-    return descriptions[key] ?? section.description ?? 'Content for ${section.name}';
+    return descriptions[key] ??
+        section.description ??
+        'Content for ${section.name}';
   }
 
   /// Generate medical report from transcription
@@ -236,13 +248,18 @@ PRIORITY DIRECTIVE:
       // Handle empty transcription
       if (transcription.isEmpty || transcription.trim().isEmpty) {
         final defaultSections = <String, String>{
-          'chief_complaint': 'Unable to determine - audio was silent or unclear',
+          'chief_complaint':
+              'Unable to determine - audio was silent or unclear',
           'symptoms': 'No symptoms recorded - transcription was empty',
-          'diagnosis': 'Assessment pending - please re-record consultation with clear audio',
+          'diagnosis':
+              'Assessment pending - please re-record consultation with clear audio',
           'prescription': 'None prescribed at this time',
-          'additional_notes': 'Recommendation: Re-record the consultation ensuring clear audio capture.',
+          'additional_notes':
+              'Recommendation: Re-record the consultation ensuring clear audio capture.',
         };
-        return ReportGenerationResult.successWithSections(sections: defaultSections);
+        return ReportGenerationResult.successWithSections(
+          sections: defaultSections,
+        );
       }
 
       // Build system prompt based on template
@@ -251,9 +268,10 @@ PRIORITY DIRECTIVE:
       // Build user prompt with optional additional instructions
       String instructionsSection = '';
       String instructionEmphasis = '';
-      
+
       if (additionalInstructions != null && additionalInstructions.isNotEmpty) {
-        instructionsSection = '''
+        instructionsSection =
+            '''
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ⚠️  CRITICAL: DOCTOR'S ADDITIONAL INSTRUCTIONS (MUST FOLLOW):
@@ -273,9 +291,10 @@ IMPORTANT: The doctor has provided specific instructions above. You MUST:
 ''';
       }
 
-      if (templateConfig?.customInstructions != null && 
+      if (templateConfig?.customInstructions != null &&
           templateConfig!.customInstructions!.isNotEmpty) {
-        instructionsSection += '''
+        instructionsSection +=
+            '''
 
 === TEMPLATE CUSTOM INSTRUCTIONS ===
 ${templateConfig.customInstructions}
@@ -283,7 +302,8 @@ ${templateConfig.customInstructions}
 ''';
       }
 
-      final userPrompt = '''Analyze the following medical consultation transcription and generate a comprehensive clinical report.
+      final userPrompt =
+          '''Analyze the following medical consultation transcription and generate a comprehensive clinical report.
 
 Patient Name: ${patientName ?? 'Not provided'}
 Consultation Language: $language
@@ -302,14 +322,17 @@ Generate a detailed medical consultation report in the specified JSON format. En
       );
 
       if (validation.$1) {
-        return ReportGenerationResult.successWithSections(sections: validation.$2);
+        return ReportGenerationResult.successWithSections(
+          sections: validation.$2,
+        );
       }
 
       // Retry once with explicit error instructions if validation failed
       print('⚠️ First attempt failed validation: ${validation.$3}');
       print('Retrying with stricter instructions...');
-      
-      final retrySystemPrompt = '''$systemPrompt
+
+      final retrySystemPrompt =
+          '''$systemPrompt
 
 CRITICAL: Your previous response was INVALID. Error: ${validation.$3}
 
@@ -320,17 +343,16 @@ YOU MUST:
 4. Every value must be a simple string (use \\n for line breaks in lists)
 5. Use "Not documented" for any field you cannot determine from the transcription''';
 
-      final second = await _callFeather(
-        retrySystemPrompt,
-        userPrompt,
-      );
+      final second = await _callFeather(retrySystemPrompt, userPrompt);
       final retryValidation = _validateAndExtractSections(
         second,
         templateConfig: templateConfig,
       );
 
       if (retryValidation.$1) {
-        return ReportGenerationResult.successWithSections(sections: retryValidation.$2);
+        return ReportGenerationResult.successWithSections(
+          sections: retryValidation.$2,
+        );
       }
 
       // If still invalid, return raw for display to avoid full failure
@@ -381,7 +403,7 @@ YOU MUST:
     try {
       // Clean the content first - remove code fences, extra whitespace
       String cleaned = content.trim();
-      
+
       // Remove markdown code fences if present
       if (cleaned.startsWith('```')) {
         // Remove ```json or ``` at start
@@ -390,9 +412,12 @@ YOU MUST:
         cleaned = cleaned.replaceFirst(RegExp(r'\n?```\s*$'), '');
         cleaned = cleaned.trim();
       }
-      
+
       // Find JSON object boundaries if there's extra text
-      final jsonMatch = RegExp(r'\{[\s\S]*\}', multiLine: true).firstMatch(cleaned);
+      final jsonMatch = RegExp(
+        r'\{[\s\S]*\}',
+        multiLine: true,
+      ).firstMatch(cleaned);
       if (jsonMatch != null) {
         cleaned = jsonMatch.group(0)!;
       }
@@ -414,7 +439,8 @@ YOU MUST:
       }
 
       // If a template is present, ensure expected keys exist
-      if (templateConfig?.sections != null && templateConfig!.sections.isNotEmpty) {
+      if (templateConfig?.sections != null &&
+          templateConfig!.sections.isNotEmpty) {
         final missing = <String>[];
         for (final section in templateConfig.sections) {
           final key = _sectionToKey(section.name);
@@ -423,7 +449,11 @@ YOU MUST:
           }
         }
         if (missing.isNotEmpty) {
-          return (false, sections, 'Missing or empty required keys: ${missing.join(', ')}');
+          return (
+            false,
+            sections,
+            'Missing or empty required keys: ${missing.join(', ')}',
+          );
         }
       }
 
@@ -495,9 +525,11 @@ YOU MUST:
     return key
         .replaceAll('_', ' ')
         .split(' ')
-        .map((word) => word.isNotEmpty 
-            ? '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}' 
-            : '')
+        .map(
+          (word) => word.isNotEmpty
+              ? '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}'
+              : '',
+        )
         .join(' ');
   }
 
@@ -523,7 +555,8 @@ YOU MUST:
         }
       }
 
-      final userPrompt = '''Based on the medical consultation transcription below, regenerate the "$sectionName" section.
+      final userPrompt =
+          '''Based on the medical consultation transcription below, regenerate the "$sectionName" section.
 
 Current content that needs improvement:
 $currentContent
@@ -547,7 +580,11 @@ Provide only the content for this section, no JSON formatting needed.''';
         body: jsonEncode({
           'model': AppConfig.featherModel,
           'messages': [
-            {'role': 'system', 'content': 'You are an expert medical documentation assistant. Provide accurate, professional clinical documentation.'},
+            {
+              'role': 'system',
+              'content':
+                  'You are an expert medical documentation assistant. Provide accurate, professional clinical documentation.',
+            },
             {'role': 'user', 'content': userPrompt},
           ],
           'temperature': 0.2,
@@ -558,14 +595,16 @@ Provide only the content for this section, no JSON formatting needed.''';
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final content = data['choices']?[0]?['message']?['content'] ?? '';
-        
+
         // Return with the regenerated section
         return ReportGenerationResult.sectionRegenerated(
           sectionKey: _sectionToKey(sectionName),
           content: content.trim(),
         );
       } else {
-        return ReportGenerationResult.error('Section regeneration failed: ${response.body.substring(0, 200.clamp(0, response.body.length))}');
+        return ReportGenerationResult.error(
+          'Section regeneration failed: ${response.body.substring(0, 200.clamp(0, response.body.length))}',
+        );
       }
     } catch (e) {
       return ReportGenerationResult.error('Regeneration error: $e');
@@ -593,10 +632,7 @@ class ReportGenerationResult {
   factory ReportGenerationResult.successWithSections({
     required Map<String, String> sections,
   }) {
-    return ReportGenerationResult._(
-      success: true,
-      sections: sections,
-    );
+    return ReportGenerationResult._(success: true, sections: sections);
   }
 
   /// Legacy success constructor for backward compatibility
@@ -631,10 +667,7 @@ class ReportGenerationResult {
   }
 
   factory ReportGenerationResult.error(String error) {
-    return ReportGenerationResult._(
-      success: false,
-      error: error,
-    );
+    return ReportGenerationResult._(success: false, error: error);
   }
 
   // Legacy getters for backward compatibility
@@ -643,7 +676,7 @@ class ReportGenerationResult {
   String? get diagnosis => sections?['diagnosis'];
   String? get prescription => sections?['prescription'];
   String? get additionalNotes => sections?['additional_notes'];
-  
+
   // Legacy getter names
   String? get regeneratedSection => regeneratedSectionKey;
 }
