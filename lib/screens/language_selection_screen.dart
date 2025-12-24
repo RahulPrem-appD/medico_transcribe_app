@@ -54,7 +54,12 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Get the keyboard height to adjust layout
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+    final isKeyboardOpen = keyboardHeight > 0;
+    
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -76,11 +81,14 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen>
                   child: _buildContent(),
                 ),
               ),
+              // Show bottom bar inline when keyboard is open
+              if (isKeyboardOpen) _buildBottomBar(),
             ],
           ),
         ),
       ),
-      bottomNavigationBar: _buildBottomBar(),
+      // Only show as bottomNavigationBar when keyboard is closed
+      bottomNavigationBar: isKeyboardOpen ? null : _buildBottomBar(),
     );
   }
 
