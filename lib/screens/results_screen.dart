@@ -1889,12 +1889,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
     if (_patientNameController.text.trim().isEmpty) {
       return 'name';
     }
-    if (_ageController.text.trim().isEmpty) {
-      return 'age';
-    }
-    if (_genderController.text.trim().isEmpty) {
-      return 'gender';
-    }
+    // Age and gender are optional
     return null; // All required fields are filled
   }
 
@@ -1906,12 +1901,8 @@ class _ResultsScreenState extends State<ResultsScreen> {
       case 'name':
         message = 'Please enter patient name';
         break;
-      case 'age':
-        message = 'Please enter patient age';
-        break;
-      case 'gender':
-        message = 'Please enter patient gender';
-        break;
+      default:
+        message = 'Please fill the required field';
     }
     
     ScaffoldMessenger.of(context).showSnackBar(
@@ -1975,8 +1966,12 @@ class _ResultsScreenState extends State<ResultsScreen> {
       final sectionsToSave = Map<String, String>.from(_editedSections);
       sectionsToSave['patient_id'] = patientId;
       sectionsToSave['patient_name'] = _patientNameController.text.trim();
-      sectionsToSave['age'] = _ageController.text.trim();
-      sectionsToSave['gender'] = _genderController.text.trim();
+      if (_ageController.text.isNotEmpty) {
+        sectionsToSave['age'] = _ageController.text.trim();
+      }
+      if (_genderController.text.isNotEmpty) {
+        sectionsToSave['gender'] = _genderController.text.trim();
+      }
       if (_bloodGroupController.text.isNotEmpty) {
         sectionsToSave['blood_group'] = _bloodGroupController.text.trim();
       }
