@@ -48,6 +48,7 @@ Respond with this JSON structure (include patient details if found, plus these m
     "patient_name": "Name if mentioned",
     "age": "Age if mentioned",
     "gender": "Gender if mentioned",
+    "patient_summary": "Brief summary in passive voice (e.g., Patient was diagnosed with... Patient was advised to...)",
     "chief_complaint": "Primary reason for the visit in 1-2 sentences",
     "symptoms": "• Symptom 1 with details\\n• Symptom 2 with details",
     "diagnosis": "Clinical assessment/diagnosis based on the presented symptoms",
@@ -167,6 +168,7 @@ PRIORITY DIRECTIVE:
   String _getSectionDescription(ReportSection section) {
     // Map common section names to descriptions
     final descriptions = {
+      'patient_summary': 'Brief summary of the diagnosis and advice in passive voice (e.g., "Patient was diagnosed with... Patient was advised to...")',
       'chief_complaint': 'Primary reason for the visit in 1-2 sentences',
       'history': 'Detailed history of the present illness',
       'history_of_present_illness': 'Detailed history of the present illness',

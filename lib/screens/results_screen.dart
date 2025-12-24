@@ -53,6 +53,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
 
   // Icon mapping for common sections
   final Map<String, IconData> _sectionIcons = {
+    'patient_summary': Icons.person_rounded,
     'chief_complaint': Icons.report_problem_rounded,
     'reason_for_follow_up': Icons.report_problem_rounded,
     'symptoms': Icons.medical_information_rounded,

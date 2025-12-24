@@ -379,6 +379,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen>
 
   // Icon mapping for common sections
   final Map<String, IconData> _sectionIcons = {
+    'patient_summary': Icons.person_rounded,
     'chief_complaint': Icons.report_problem_rounded,
     'symptoms': Icons.medical_information_rounded,
     'diagnosis': Icons.health_and_safety_rounded,
