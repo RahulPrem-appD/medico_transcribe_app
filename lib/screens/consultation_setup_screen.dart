@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 import '../models/report_template.dart';
 import '../services/template_service.dart';
-import 'recording_screen.dart';
+import 'consent_screen.dart';
 
 class ConsultationSetupScreen extends StatefulWidget {
   const ConsultationSetupScreen({super.key});
@@ -105,7 +105,7 @@ class _ConsultationSetupScreenState extends State<ConsultationSetupScreen>
     Navigator.push(
       context,
       PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => RecordingScreen(
+        pageBuilder: (context, animation, secondaryAnimation) => ConsentScreen(
           language: _selectedLanguage!,
           patientName: _patientNameController.text.isNotEmpty
               ? _patientNameController.text
