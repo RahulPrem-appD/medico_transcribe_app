@@ -244,7 +244,7 @@ class _ProcessingScreenState extends State<ProcessingScreen>
                 const SizedBox(height: 32),
                 // Info cards
                 _buildInfoCard(
-                  icon: Icons.translate_rounded,
+                  icon: Icons.record_voice_over_rounded,
                   label: 'Language',
                   value: widget.language,
                 ),

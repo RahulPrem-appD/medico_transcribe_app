@@ -654,7 +654,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
       ),
       child: Row(
         children: [
-          _buildInfoChip(Icons.language_rounded, _consultation.language),
+          _buildInfoChip(Icons.record_voice_over_rounded, _consultation.language),
           const SizedBox(width: 12),
           _buildInfoChip(Icons.timer_outlined, _consultation.formattedDuration),
           const SizedBox(width: 12),

@@ -630,7 +630,7 @@ class _TranscriptionReviewScreenState extends State<TranscriptionReviewScreen>
       children: [
         Expanded(
           child: _buildInfoCard(
-            icon: Icons.translate_rounded,
+            icon: Icons.record_voice_over_rounded,
             label: 'Language',
             value: widget.language,
             color: AppTheme.primarySkyBlue,

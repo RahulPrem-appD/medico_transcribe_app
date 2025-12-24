@@ -943,7 +943,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen>
                   color: Colors.white.withOpacity(0.2),
                 ),
                 _buildInfoItem(
-                  Icons.translate_rounded,
+                  Icons.record_voice_over_rounded,
                   'Language',
                   _consultation.language,
                 ),

@@ -312,7 +312,7 @@ class _RecordingScreenState extends State<RecordingScreen>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const Icon(
-                      Icons.translate_rounded,
+                      Icons.record_voice_over_rounded,
                       color: AppTheme.primarySkyBlue,
                       size: 18,
                     ),
