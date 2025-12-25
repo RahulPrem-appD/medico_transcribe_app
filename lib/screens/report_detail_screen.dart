@@ -217,30 +217,30 @@ class _ReportDetailScreenState extends State<ReportDetailScreen>
               ),
             )
           else
-            GestureDetector(
-              onTap: () {
-                _showOptionsMenu();
-              },
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.more_vert_rounded,
-                  color: AppTheme.darkSlate,
-                  size: 22,
-                ),
+          GestureDetector(
+            onTap: () {
+              _showOptionsMenu();
+            },
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.more_vert_rounded,
+                color: AppTheme.darkSlate,
+                size: 22,
               ),
             ),
+          ),
         ],
       ),
     );
@@ -424,14 +424,6 @@ class _ReportDetailScreenState extends State<ReportDetailScreen>
           // Patient header card
           _buildPatientHeader(),
           const SizedBox(height: 20),
-          // Transcription (collapsible)
-          if (_consultation.transcription != null && _consultation.transcription!.isNotEmpty)
-            _buildCollapsibleCard(
-              'Transcription',
-              Icons.record_voice_over_rounded,
-              _consultation.transcription!,
-              AppTheme.mediumGray,
-            ),
           // Dynamic report sections (excluding patient details which are shown in header)
           if (report != null && report.sections.isNotEmpty) ...[
             ...report.sectionKeys
@@ -510,6 +502,16 @@ class _ReportDetailScreenState extends State<ReportDetailScreen>
             ],
           ] else
             _buildNoReportCard(),
+          // Transcription (collapsible) - moved to bottom
+          if (_consultation.transcription != null && _consultation.transcription!.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            _buildCollapsibleCard(
+              'Transcription',
+              Icons.record_voice_over_rounded,
+              _consultation.transcription!,
+              AppTheme.mediumGray,
+            ),
+          ],
           const SizedBox(height: 100),
         ],
       ),
